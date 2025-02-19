@@ -1,402 +1,200 @@
-<!DOCTYPE HTML>
+<!DOCTYPE html>
 <html lang="en">
-
-
 <head>
-    <meta charset="utf-8">
-    <meta name="keywords" content="Weichy&#39;s Blog">
-    <meta name="description" content="我是一个24岁在USTC读大数据工程与技术的研二学生，24年2-5月以第一作者完成一篇关于目标检测探地雷达信号异常的IEEE TGRS论文，于9月大修11月底中稿。7-8月跟随师兄完成一篇时间序列论文（我是二作）第一次投稿AAAI2025被">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="renderer" content="webkit|ie-stand|ie-comp">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="format-detection" content="telephone=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="referrer" content="no-referrer-when-downgrade">
-    <!-- Global site tag (gtag.js) - Google Analytics -->
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
 
 
-    <title>Weichy&#39;s Blog</title>
-    <link rel="icon" type="image/png" href="/favicon.png">
-    
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"weichy9218.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="我是一个24岁在USTC读大数据工程与技术的研二学生，24年2-5月以第一作者完成一篇关于目标检测探地雷达信号异常的IEEE TGRS论文，于9月大修11月底中稿。7-8月跟随师兄完成一篇时间序列论文（我是二作）第一次投稿AAAI2025被拒，后年底转头ICML2025。6-11月期间学习了解了关于ODE相关知识，本来希望实现ESN和ODE的结合在让水库计算能够连续起来，但是GPU计算时间过长，放">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Weichy&#39;s Blog">
+<meta property="og:url" content="hhttps://Weichy9218.github.io/2025/02/18/Chat_DS/index.html">
+<meta property="og:site_name" content="Weichy&#39;s Blog">
+<meta property="og:description" content="我是一个24岁在USTC读大数据工程与技术的研二学生，24年2-5月以第一作者完成一篇关于目标检测探地雷达信号异常的IEEE TGRS论文，于9月大修11月底中稿。7-8月跟随师兄完成一篇时间序列论文（我是二作）第一次投稿AAAI2025被拒，后年底转头ICML2025。6-11月期间学习了解了关于ODE相关知识，本来希望实现ESN和ODE的结合在让水库计算能够连续起来，但是GPU计算时间过长，放">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2025-02-18T08:36:03.575Z">
+<meta property="article:modified_time" content="2025-02-13T04:33:11.690Z">
+<meta property="article:author" content="chuyang wei">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="hhttps://Weichy9218.github.io/2025/02/18/Chat_DS/">
 
 
-    <!-- bg-cover style     -->
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
 
-
-
-<link rel="stylesheet" type="text/css" href="/libs/awesome/css/all.min.css">
-<link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
-<link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
-<link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
-<link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
-<link rel="stylesheet" type="text/css" href="/css/matery.css">
-<link rel="stylesheet" type="text/css" href="/css/my.css">
-<link rel="stylesheet" type="text/css" href="/css/dark.css" media="none" onload="if(media!='all')media='all'">
-
-
-
-
-    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
-    <link rel="stylesheet" href="/css/post.css">
-
-
-
-
-    
-        <link rel="stylesheet" type="text/css" href="/css/reward.css">
-    
-
-
-
-    <script src="/libs/jquery/jquery-3.6.0.min.js"></script>
-
-<meta name="generator" content="Hexo 7.3.0"></head>
-
-
-<body>
-    <header class="navbar-fixed">
-    <nav id="headNav" class="bg-color nav-transparent">
-        <div id="navContainer" class="nav-wrapper container">
-            <div class="brand-logo">
-                <a href="/" class="waves-effect waves-light">
-                    
-                    <img src="/medias/logo.png" class="logo-img" alt="LOGO">
-                    
-                    <span class="logo-span">Weichy&#39;s Blog</span>
-                </a>
-            </div>
-            
-
-<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fas fa-bars"></i></a>
-<ul class="right nav-menu">
+  <title> | Weichy's Blog</title>
   
-  <li class="hide-on-med-and-down nav-item">
-    
-    <a href="/" class="waves-effect waves-light">
-      
-      <i class="fas fa-home" style="zoom: 0.6;"></i>
-      
-      <span>Index</span>
-    </a>
-    
-  </li>
-  
-  <li class="hide-on-med-and-down nav-item">
-    
-    <a href="/tags" class="waves-effect waves-light">
-      
-      <i class="fas fa-tags" style="zoom: 0.6;"></i>
-      
-      <span>Tags</span>
-    </a>
-    
-  </li>
-  
-  <li class="hide-on-med-and-down nav-item">
-    
-    <a href="/categories" class="waves-effect waves-light">
-      
-      <i class="fas fa-bookmark" style="zoom: 0.6;"></i>
-      
-      <span>Categories</span>
-    </a>
-    
-  </li>
-  
-  <li class="hide-on-med-and-down nav-item">
-    
-    <a href="/archives" class="waves-effect waves-light">
-      
-      <i class="fas fa-archive" style="zoom: 0.6;"></i>
-      
-      <span>Archives</span>
-    </a>
-    
-  </li>
-  
-  <li class="hide-on-med-and-down nav-item">
-    
-    <a href="/about" class="waves-effect waves-light">
-      
-      <i class="fas fa-user-circle" style="zoom: 0.6;"></i>
-      
-      <span>About</span>
-    </a>
-    
-  </li>
-  
-  <li class="hide-on-med-and-down nav-item">
-    
-    <a href="/contact" class="waves-effect waves-light">
-      
-      <i class="fas fa-comments" style="zoom: 0.6;"></i>
-      
-      <span>Contact</span>
-    </a>
-    
-  </li>
-  
-  <li class="hide-on-med-and-down nav-item">
-    
-    <a href="/friends" class="waves-effect waves-light">
-      
-      <i class="fas fa-address-book" style="zoom: 0.6;"></i>
-      
-      <span>Friends</span>
-    </a>
-    
-  </li>
-  
-  <li>
-    <a href="#searchModal" class="modal-trigger waves-effect waves-light">
-      <i id="searchIcon" class="fas fa-search" title="Search" style="zoom: 0.85;"></i>
-    </a>
-  </li>
-  <li>
-    <a href="javascript:;" class="waves-effect waves-light" onclick="switchNightMode()" title="深色/浅色模式" >
-      <i id="sum-moon-icon" class="fas fa-sun" style="zoom: 0.85;"></i>
-    </a>
-  </li>
-</ul>
 
 
-<div id="mobile-nav" class="side-nav sidenav">
 
-    <div class="mobile-head bg-color">
-        
-        <img src="/medias/logo.png" class="logo-img circle responsive-img">
-        
-        <div class="logo-name">Weichy&#39;s Blog</div>
-        <div class="logo-desc">
-            
-            Focus on the Future
-            
-        </div>
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
     </div>
+  </div>
 
-    <ul class="menu-list mobile-menu-list">
-        
-        <li class="m-nav-item">
-	  
-		<a href="/" class="waves-effect waves-light">
-			
-			    <i class="fa-fw fas fa-home"></i>
-			
-			Index
-		</a>
-          
-        </li>
-        
-        <li class="m-nav-item">
-	  
-		<a href="/tags" class="waves-effect waves-light">
-			
-			    <i class="fa-fw fas fa-tags"></i>
-			
-			Tags
-		</a>
-          
-        </li>
-        
-        <li class="m-nav-item">
-	  
-		<a href="/categories" class="waves-effect waves-light">
-			
-			    <i class="fa-fw fas fa-bookmark"></i>
-			
-			Categories
-		</a>
-          
-        </li>
-        
-        <li class="m-nav-item">
-	  
-		<a href="/archives" class="waves-effect waves-light">
-			
-			    <i class="fa-fw fas fa-archive"></i>
-			
-			Archives
-		</a>
-          
-        </li>
-        
-        <li class="m-nav-item">
-	  
-		<a href="/about" class="waves-effect waves-light">
-			
-			    <i class="fa-fw fas fa-user-circle"></i>
-			
-			About
-		</a>
-          
-        </li>
-        
-        <li class="m-nav-item">
-	  
-		<a href="/contact" class="waves-effect waves-light">
-			
-			    <i class="fa-fw fas fa-comments"></i>
-			
-			Contact
-		</a>
-          
-        </li>
-        
-        <li class="m-nav-item">
-	  
-		<a href="/friends" class="waves-effect waves-light">
-			
-			    <i class="fa-fw fas fa-address-book"></i>
-			
-			Friends
-		</a>
-          
-        </li>
-        
-        
-        <li><div class="divider"></div></li>
-        <li>
-            <a href="https://github.com/blinkfox/hexo-theme-matery" class="waves-effect waves-light" target="_blank">
-                <i class="fab fa-github-square fa-fw"></i>Fork Me
-            </a>
-        </li>
-        
-    </ul>
-</div>
+  <div class="site-meta">
 
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Weichy's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
 
-        </div>
-
-        
-            <style>
-    .nav-transparent .github-corner {
-        display: none !important;
-    }
-
-    .github-corner {
-        position: absolute;
-        z-index: 10;
-        top: 0;
-        right: 0;
-        border: 0;
-        transform: scale(1.1);
-    }
-
-    .github-corner svg {
-        color: #0f9d58;
-        fill: #fff;
-        height: 64px;
-        width: 64px;
-    }
-
-    .github-corner:hover .octo-arm {
-        animation: a 0.56s ease-in-out;
-    }
-
-    .github-corner .octo-arm {
-        animation: none;
-    }
-
-    @keyframes a {
-        0%,
-        to {
-            transform: rotate(0);
-        }
-        20%,
-        60% {
-            transform: rotate(-25deg);
-        }
-        40%,
-        80% {
-            transform: rotate(10deg);
-        }
-    }
-</style>
-
-<a href="https://github.com/blinkfox/hexo-theme-matery" class="github-corner tooltipped hide-on-med-and-down" target="_blank"
-   data-tooltip="Fork Me" data-position="left" data-delay="50">
-    <svg viewBox="0 0 250 250" aria-hidden="true">
-        <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
-        <path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
-              fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
-        <path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
-              fill="currentColor" class="octo-body"></path>
-    </svg>
-</a>
-        
-    </nav>
-
-</header>
-
-    
-
-
-
-<div class="bg-cover pd-header post-cover" style="background-image: url('/medias/featureimages/0.jpg')">
-    <div class="container" style="right: 0px;left: 0px;">
-        <div class="row">
-            <div class="col s12 m12 l12">
-                <div class="brand">
-                    <h1 class="description center-align post-title"></h1>
-                </div>
-            </div>
-        </div>
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
     </div>
+  </div>
 </div>
 
 
 
 
-<main class="post-container content">
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
 
     
-    <div class="row">
-    <div id="main-content" class="col s12 m12 l9">
-        <!-- 文章内容详情 -->
-<div id="artDetail">
-    <div class="card">
-        <div class="card-content article-info">
-            <div class="row tag-cate">
-                <div class="col s7">
-                    
-                          <div class="article-tag">
-                            <span class="chip bg-color">No tag</span>
-                          </div>
-                    
-                </div>
-                <div class="col s5 right-align">
-                    
-                </div>
-            </div>
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
 
-            <div class="post-info">
-                
-                <div class="post-date info-break-policy">
-                    <i class="far fa-calendar-minus fa-fw"></i>Publish Date:&nbsp;&nbsp;
-                    2025-02-18
-                </div>
-                
 
-                
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
 
-                
+          <div class="content post posts-expand">
+            
 
-                
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="hhttps://Weichy9218.github.io/2025/02/18/Chat_DS/">
 
-                
-            </div>
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="chuyang wei">
+      <meta itemprop="description" content="Focus on the Future">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Weichy's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2025-02-18 16:36:03" itemprop="dateCreated datePublished" datetime="2025-02-18T16:36:03+08:00">2025-02-18</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2025-02-13 12:33:11" itemprop="dateModified" datetime="2025-02-13T12:33:11+08:00">2025-02-13</time>
+              </span>
+
+          
+
         </div>
-        <hr class="clearfix">
+      </header>
 
-        
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
 
-        
-
-        <div class="card-content article-card-content">
-            <div id="articleContent">
-                <p>我是一个24岁在USTC读大数据工程与技术的研二学生，24年2-5月以第一作者完成一篇关于目标检测探地雷达信号异常的IEEE TGRS论文，于9月大修11月底中稿。7-8月跟随师兄完成一篇时间序列论文（我是二作）第一次投稿AAAI2025被拒，后年底转头ICML2025。6-11月期间学习了解了关于ODE相关知识，本来希望实现ESN和ODE的结合在让水库计算能够连续起来，但是GPU计算时间过长，放弃了。11-12月实验室写投标项目书和一个军方项目本子，做联指执勤席位画像的构建纯是编辑的文字活，对技术没有要求，又浪费了一些时间。 我之前的目标是申请美国的phd，因此1月至今一直在准备托福，25年1月15日首考托福16+16+19+20&#x3D;71分，我目标在2月底将托福成绩考到100分，同时我将托福考试作为我不在实验室继续痛苦的项目和编辑工作的借口，但在deepseek出来之后，我对是否去美国花5年读phd的决心产生了怀疑。过去我觉得自己有一些科研兴趣，但是也没有很强的能力，过去两年就业市场遇冷，我能看到最优秀的师兄去美国威斯康辛麦迪逊读工业工程phd方向是强化学习，这比起去大厂领一份30W的薪水，做可能到35岁就可能失业的工作对我来说更有吸引力。可是，我现在的想法是，无论读phd还是工作，好的成长环境最重要，而不是钱或者文凭，我应该正视自己代码能力不足，大模型经验为0以及科研成果一般的问题，积极为未来做好准备。我不想放弃深造，可是我未来的研究方向还没有确定，短期来开，我觉得大模型一定是一个发展方向，因为从23年初到现在（我在这期间从兰州大学保研到中国科大）计算机的市场已经发生了从短视频流量到agent大模型的转变。我觉得如果自己能加入deepseek这样的团队学习，价值要远超我去美国花5年读phd（因为我方向都没想好，硬套磁老师估计也很难会有比较好的offer）香港和新加坡，我的大导师陈欢欢有一些能联系上的资源，我也会考虑。总的来说，过完元宵节我会继续准备托福，同时我给自己的计划是积累一段时间大模型知识，从Transformer、GPT到RLHF再到MOE和Deepseek，用一个月左右的时间先读论文复现一些项目，我想入门大模型，无论是科研还是工作我都希望紧跟时代浪潮，不做缩头乌龟。同时我还要平衡好和女朋友的关系，她是我的本科同学，硕士在南大读新闻实务，近期在央视实习。同时，我不该再看短视频逃避压力，晚上也最好少熬夜，上午要早起，最好形成运动的习惯（读研之后因为没球友，篮球我也不打了，然后科研压力大，常常没时间运动，或者说懒得动）请deepseek根据我的经历分析我的现状，给出一些有价值的建议，特别是关于我未来的选择。我不想让自己的人生留有遗憾！</p>
+      
+        <p>我是一个24岁在USTC读大数据工程与技术的研二学生，24年2-5月以第一作者完成一篇关于目标检测探地雷达信号异常的IEEE TGRS论文，于9月大修11月底中稿。7-8月跟随师兄完成一篇时间序列论文（我是二作）第一次投稿AAAI2025被拒，后年底转头ICML2025。6-11月期间学习了解了关于ODE相关知识，本来希望实现ESN和ODE的结合在让水库计算能够连续起来，但是GPU计算时间过长，放弃了。11-12月实验室写投标项目书和一个军方项目本子，做联指执勤席位画像的构建纯是编辑的文字活，对技术没有要求，又浪费了一些时间。 我之前的目标是申请美国的phd，因此1月至今一直在准备托福，25年1月15日首考托福16+16+19+20&#x3D;71分，我目标在2月底将托福成绩考到100分，同时我将托福考试作为我不在实验室继续痛苦的项目和编辑工作的借口，但在deepseek出来之后，我对是否去美国花5年读phd的决心产生了怀疑。过去我觉得自己有一些科研兴趣，但是也没有很强的能力，过去两年就业市场遇冷，我能看到最优秀的师兄去美国威斯康辛麦迪逊读工业工程phd方向是强化学习，这比起去大厂领一份30W的薪水，做可能到35岁就可能失业的工作对我来说更有吸引力。可是，我现在的想法是，无论读phd还是工作，好的成长环境最重要，而不是钱或者文凭，我应该正视自己代码能力不足，大模型经验为0以及科研成果一般的问题，积极为未来做好准备。我不想放弃深造，可是我未来的研究方向还没有确定，短期来开，我觉得大模型一定是一个发展方向，因为从23年初到现在（我在这期间从兰州大学保研到中国科大）计算机的市场已经发生了从短视频流量到agent大模型的转变。我觉得如果自己能加入deepseek这样的团队学习，价值要远超我去美国花5年读phd（因为我方向都没想好，硬套磁老师估计也很难会有比较好的offer）香港和新加坡，我的大导师陈欢欢有一些能联系上的资源，我也会考虑。总的来说，过完元宵节我会继续准备托福，同时我给自己的计划是积累一段时间大模型知识，从Transformer、GPT到RLHF再到MOE和Deepseek，用一个月左右的时间先读论文复现一些项目，我想入门大模型，无论是科研还是工作我都希望紧跟时代浪潮，不做缩头乌龟。同时我还要平衡好和女朋友的关系，她是我的本科同学，硕士在南大读新闻实务，近期在央视实习。同时，我不该再看短视频逃避压力，晚上也最好少熬夜，上午要早起，最好形成运动的习惯（读研之后因为没球友，篮球我也不打了，然后科研压力大，常常没时间运动，或者说懒得动）请deepseek根据我的经历分析我的现状，给出一些有价值的建议，特别是关于我未来的选择。我不想让自己的人生留有遗憾！</p>
 <p>siliconflow-deepseek R1</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">嗯，这个用户的情况挺复杂的，我得仔细分析一下。首先，他是在USTC读大数据工程与技术的研二学生，已经有一些科研成果，比如那篇IEEE TGRS的论文，还有参与的时间序列论文。不过现在他面临申请美国PhD的抉择，但托福成绩还不理想，同时看到DeepSeek这样的机会，开始犹豫是否要继续读博还是转向工业界。</span><br><span class="line"></span><br><span class="line">首先，他的优势很明显：有不错的科研背景，两篇论文（一篇一作，一篇二作），参与过项目，虽然有些是文字工作，但至少积累了经验。不过他的托福成绩只有71，目标是在2月底考到100，时间紧迫，可能需要调整学习方法或者加强薄弱环节，比如口语和写作。</span><br><span class="line"></span><br><span class="line">然后，他提到对PhD的决心动摇，主要是因为大模型的发展，比如DeepSeek的出现，让他觉得加入这样的团队可能比读博更有价值。同时，他担心自己代码能力不足，大模型经验为零，科研成果一般，可能影响申请结果。另外，他还有香港和新加坡的资源可以考虑，导师有联系，这也是一个备选方案。</span><br><span class="line"></span><br><span class="line">接下来，他计划用一个月时间学习大模型相关知识，从Transformer到RLHF，复现项目，希望快速入门。同时还要平衡和女朋友的关系，调整作息，运动等等。</span><br><span class="line"></span><br><span class="line">需要分析的问题有几个方面：</span><br><span class="line"></span><br><span class="line">是否继续申请美国PhD？需要考虑他的科研兴趣是否明确，申请的可能性（托福成绩、推荐信、论文质量），以及PhD对他长期发展的帮助。如果方向不明确，硬申请可能效果不好，尤其是美国top学校的竞争激烈。</span><br><span class="line"></span><br><span class="line">转向工业界，特别是大模型领域，如DeepSeek，是否可行？需要评估他的技能缺口（代码能力、大模型经验），如何快速补充，以及国内大模型团队的需求和竞争情况。</span><br><span class="line"></span><br><span class="line">香港和新加坡的PhD机会，相比美国有哪些优劣？比如时间更短，资源可能更接近国内，毕业后的出路等。</span><br><span class="line"></span><br><span class="line">时间管理问题：如何在准备托福的同时学习大模型知识，平衡科研、申请、个人生活。</span><br><span class="line"></span><br><span class="line">建议可能需要分几个部分：学术路径、工业界路径、备选方案，以及自我提升和时间管理。</span><br><span class="line"></span><br><span class="line">在学术路径方面，如果他对PhD还有兴趣，可能需要明确研究方向，利用现有成果和导师资源，提升托福成绩，同时考虑香港/新加坡作为备选，因为时间可能更短，竞争相对较小，而且有导师的资源。如果方向不明确，PhD可能会比较痛苦，尤其是美国需要5年时间。</span><br><span class="line"></span><br><span class="line">工业界方面，大模型确实热门，但需要快速提升相关技能，比如参加开源项目，实习，或者做相关项目。DeepSeek这样的公司可能更看重实际能力和项目经验，而不仅仅是论文。他需要评估自己是否能在一个月内有效提升，或者是否需要更长时间的准备。</span><br><span class="line"></span><br><span class="line">另外，自我提升方面，代码能力可以通过参与项目或在线课程加强，大模型的基础知识需要系统学习，可能从理论到实践逐步深入。同时，保持健康的生活习惯，平衡压力，这对长期发展很重要。</span><br><span class="line"></span><br><span class="line">最后，可能需要建议他做一个SWOT分析，明确自己的优势、劣势、机会和威胁，然后制定短期和长期计划，比如先冲刺托福，同时开始接触大模型的基础，申请季时根据情况调整策略，考虑多个选项，比如同时申请PhD和找工作，或者寻找实习机会积累经验。</span><br></pre></td></tr></table></figure>
 
@@ -499,444 +297,141 @@
 </ul>
 <p>当前正处于AI技术革命的临界点，建议采取”双轨制”策略：用3个月时间同步提升托福（目标95+）和大模型实操能力，期间通过NLP领域顶会（ACL&#x2F;EMNLP）寻找潜在PhD导师。若2024年6月前未获理想offer，可申请商汤研究院等企业的研究型岗位，保持学术与工业的衔接弹性。记住，在AGI时代，持续学习能力比既定路径更重要，保持你在信号处理领域的数学优势，这将成为突破大模型同质化竞争的关键筹码。</p>
 
-                
-            </div>
-            <hr/>
-
-            
-
-    <div class="reprint" id="reprint-statement">
-        
-            <div class="reprint__author">
-                <span class="reprint-meta" style="font-weight: bold;">
-                    <i class="fas fa-user">
-                        Author:
-                    </i>
-                </span>
-                <span class="reprint-info">
-                    <a href="/about" rel="external nofollow noreferrer">chuyang wei</a>
-                </span>
-            </div>
-            <div class="reprint__type">
-                <span class="reprint-meta" style="font-weight: bold;">
-                    <i class="fas fa-link">
-                        Link:
-                    </i>
-                </span>
-                <span class="reprint-info">
-                    <a href="hhttps://Weichy9218.github.io/2025/02/18/Chat_DS/">hhttps://Weichy9218.github.io/2025/02/18/Chat_DS/</a>
-                </span>
-            </div>
-            <div class="reprint__notice">
-                <span class="reprint-meta" style="font-weight: bold;">
-                    <i class="fas fa-copyright">
-                        Reprint policy:
-                    </i>
-                </span>
-                <span class="reprint-info">
-                    All articles in this blog are used except for special statements
-                    <a href="https://creativecommons.org/licenses/by/4.0/deed.zh" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>
-                    reprint policy. If reproduced, please indicate source
-                    <a href="/about" target="_blank">chuyang wei</a>
-                    !
-                </span>
-            </div>
-        
     </div>
 
-    <script async defer>
-      document.addEventListener("copy", function (e) {
-        let toastHTML = '<span>Copied successfully, please follow the reprint policy of this article</span><button class="btn-flat toast-action" onclick="navToReprintStatement()" style="font-size: smaller">more</a>';
-        M.toast({html: toastHTML})
-      });
+    
+    
+    
 
-      function navToReprintStatement() {
-        $("html, body").animate({scrollTop: $("#reprint-statement").offset().top - 80}, 800);
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2025/02/18/hello-world/" rel="prev" title="Hello World">
+      <i class="fa fa-chevron-left"></i> Hello World
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2025/02/19/GPT-2-Reading/" rel="next" title="GPT-2 Paper Reading">
+      GPT-2 Paper Reading <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
       }
-    </script>
-
-
-
-            <div class="tag_share" style="display: block;">
-                <div class="post-meta__tag-list" style="display: inline-block;">
-                    
-                        <div class="article-tag">
-                            <span class="chip bg-color">No tag</span>
-                        </div>
-                    
-                </div>
-                <div class="post_share" style="zoom: 80%; width: fit-content; display: inline-block; float: right; margin: -0.15rem 0;">
-                    <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
-<div id="article-share">
-
-    
-    <div class="social-share" data-sites="twitter,facebook,google,qq,qzone,wechat,weibo,douban,linkedin" data-wechat-qrcode-helper="<p>微信扫一扫即可分享！</p>"></div>
-    <script src="/libs/share/js/social-share.min.js"></script>
-    
-
-    
-
-</div>
-
-                </div>
-            </div>
-            
-                <div id="reward">
-    <a href="#rewardModal" class="reward-link modal-trigger btn-floating btn-medium waves-effect waves-light red">赏</a>
-
-    <!-- Modal Structure -->
-    <div id="rewardModal" class="modal">
-        <div class="modal-content">
-            <a class="close modal-close"><i class="fas fa-times"></i></a>
-            <h4 class="reward-title">你的赏识是我前进的动力</h4>
-            <div class="reward-content">
-                <div class="reward-tabs">
-                    <ul class="tabs row">
-                        <li class="tab col s6 alipay-tab waves-effect waves-light"><a href="#alipay">支付宝</a></li>
-                        <li class="tab col s6 wechat-tab waves-effect waves-light"><a href="#wechat">微 信</a></li>
-                    </ul>
-                    <div id="alipay">
-                        <img src="/medias/reward/alipay.jpg" class="reward-img" alt="支付宝打赏二维码">
-                    </div>
-                    <div id="wechat">
-                        <img src="/medias/reward/wechat.png" class="reward-img" alt="微信打赏二维码">
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    $(function () {
-        $('.tabs').tabs();
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
     });
+  }
 </script>
 
-            
         </div>
-    </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
 
-    
+  <aside class="sidebar">
+    <div class="sidebar-inner">
 
-    
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
 
-    
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E7%8E%B0%E7%8A%B6%E5%88%86%E6%9E%90"><span class="nav-number">1.</span> <span class="nav-text">一、现状分析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E8%B7%AF%E5%BE%84%E9%80%89%E6%8B%A9%E5%BB%BA%E8%AE%AE"><span class="nav-number">2.</span> <span class="nav-text">二、路径选择建议</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Option-1%EF%BC%9A%E5%AD%A6%E6%9C%AF%E8%B7%AF%E5%BE%84"><span class="nav-number">2.1.</span> <span class="nav-text">Option 1：学术路径</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Option-2%EF%BC%9A%E4%BA%A7%E4%B8%9A%E8%B7%AF%E5%BE%84"><span class="nav-number">2.2.</span> <span class="nav-text">Option 2：产业路径</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Option-3%EF%BC%9A%E6%8A%98%E4%B8%AD%E6%96%B9%E6%A1%88"><span class="nav-number">2.3.</span> <span class="nav-text">Option 3：折中方案</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E8%83%BD%E5%8A%9B%E6%8F%90%E5%8D%87%E7%AD%96%E7%95%A5"><span class="nav-number">3.</span> <span class="nav-text">三、能力提升策略</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%B4%A7%E6%80%A5%E4%BA%8B%E9%A1%B9%EF%BC%882%E4%B8%AA%E6%9C%88%E5%86%85%EF%BC%89"><span class="nav-number">3.1.</span> <span class="nav-text">紧急事项（2个月内）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%AD%E6%9C%9F%E5%BB%BA%E8%AE%BE%EF%BC%883-6%E4%B8%AA%E6%9C%88%EF%BC%89"><span class="nav-number">3.2.</span> <span class="nav-text">中期建设（3-6个月）</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%94%9F%E6%B4%BB%E7%AE%A1%E7%90%86"><span class="nav-number">4.</span> <span class="nav-text">四、生活管理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E9%A3%8E%E9%99%A9%E9%A2%84%E8%AD%A6"><span class="nav-number">5.</span> <span class="nav-text">五、风险预警</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E8%81%8C%E4%B8%9A%E5%8F%91%E5%B1%95%E8%B7%AF%E5%BE%84%E9%80%89%E6%8B%A9"><span class="nav-number">6.</span> <span class="nav-text">一、职业发展路径选择</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E5%AD%A6%E6%9C%AF%E6%B7%B1%E8%80%95%E8%B7%AF%E7%BA%BF%E5%BB%BA%E8%AE%AE"><span class="nav-number">7.</span> <span class="nav-text">二、学术深耕路线建议</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E8%83%BD%E5%8A%9B%E6%8F%90%E5%8D%87%E7%AD%96%E7%95%A5-1"><span class="nav-number">8.</span> <span class="nav-text">三、能力提升策略</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E7%94%9F%E6%B4%BB%E7%AE%A1%E7%90%86%E5%BB%BA%E8%AE%AE"><span class="nav-number">9.</span> <span class="nav-text">四、生活管理建议</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
 
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-<article id="prenext-posts" class="prev-next articles">
-    <div class="row article-row">
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">chuyang wei</p>
+  <div class="site-description" itemprop="description">Focus on the Future</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
         
-        <div class="article col s12 m6" data-aos="fade-up">
-            <div class="article-badge left-badge text-color">
-                <i class="fas fa-chevron-left"></i>&nbsp;Previous</div>
-            <div class="card">
-                <a href="/2025/02/19/GPT-2-Reading/">
-                    <div class="card-image">
-                        
-                        
-                        <img src="/medias/featureimages/16.jpg" class="responsive-img" alt="GPT-2 Paper Reading">
-                        
-                        <span class="card-title">GPT-2 Paper Reading</span>
-                    </div>
-                </a>
-                <div class="card-content article-content">
-                    <div class="summary block-with-text">
-                        
-                            
-                        
-                    </div>
-                    <div class="publish-info">
-                        <span class="publish-date">
-                            <i class="far fa-clock fa-fw icon-date"></i>2025-02-19
-                        </span>
-                        <span class="publish-author">
-                            
-                            <i class="fas fa-user fa-fw"></i>
-                            chuyang wei
-                            
-                        </span>
-                    </div>
-                </div>
-                
-                <div class="card-action article-tags">
-                    
-                    <a href="/tags/LLM-is-the-future/">
-                        <span class="chip bg-color">LLM is the future.</span>
-                    </a>
-                    
-                </div>
-                
-            </div>
-        </div>
-        
-        
-        <div class="article col s12 m6" data-aos="fade-up">
-            <div class="article-badge right-badge text-color">
-                Next&nbsp;<i class="fas fa-chevron-right"></i>
-            </div>
-            <div class="card">
-                <a href="/2025/02/18/hello-world/">
-                    <div class="card-image">
-                        
-                        
-                        <img src="/medias/featureimages/12.jpg" class="responsive-img" alt="Hello World">
-                        
-                        <span class="card-title">Hello World</span>
-                    </div>
-                </a>
-                <div class="card-content article-content">
-                    <div class="summary block-with-text">
-                        
-                            
-                        
-                    </div>
-                    <div class="publish-info">
-                            <span class="publish-date">
-                                <i class="far fa-clock fa-fw icon-date"></i>2025-02-18
-                            </span>
-                        <span class="publish-author">
-                            
-                            <i class="fas fa-user fa-fw"></i>
-                            chuyang wei
-                            
-                        </span>
-                    </div>
-                </div>
-                
-            </div>
-        </div>
-        
-    </div>
-</article>
-
+          <span class="site-state-item-count">3</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">tags</span>
+      </div>
+  </nav>
 </div>
 
 
 
-<!-- 代码块功能依赖 -->
-<script type="text/javascript" src="/libs/codeBlock/codeBlockFuction.js"></script>
-
-
-
-<!-- 代码语言 -->
-
-<script type="text/javascript" src="/libs/codeBlock/codeLang.js"></script>
-
-
-<!-- 代码块复制 -->
-
-<script type="text/javascript" src="/libs/codeBlock/codeCopy.js"></script>
-
-
-<!-- 代码块收缩 -->
-
-<script type="text/javascript" src="/libs/codeBlock/codeShrink.js"></script>
-
-
+      </div>
 
     </div>
-    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
-        <div class="toc-widget card" style="background-color: white;">
-            <div class="toc-title"><i class="far fa-list-alt"></i>&nbsp;&nbsp;TOC</div>
-            <div id="toc-content"></div>
-        </div>
-    </div>
-</div>
-
-<!-- TOC 悬浮按钮. -->
-
-<div id="floating-toc-btn" class="hide-on-med-and-down">
-    <a class="btn-floating btn-large bg-color">
-        <i class="fas fa-list-ul"></i>
-    </a>
-</div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
 
 
-<script src="/libs/tocbot/tocbot.min.js"></script>
-<script>
-    $(function () {
-        tocbot.init({
-            tocSelector: '#toc-content',
-            contentSelector: '#articleContent',
-            headingsOffset: -($(window).height() * 0.4 - 45),
-            collapseDepth: Number('0'),
-            headingSelector: 'h2, h3, h4'
-        });
+      </div>
+    </main>
 
-        // Set scroll toc fixed.
-        let tocHeight = parseInt($(window).height() * 0.4 - 64);
-        let $tocWidget = $('.toc-widget');
-        $(window).scroll(function () {
-            let scroll = $(window).scrollTop();
-            /* add post toc fixed. */
-            if (scroll > tocHeight) {
-                $tocWidget.addClass('toc-fixed');
-            } else {
-                $tocWidget.removeClass('toc-fixed');
-            }
-        });
+    <footer class="footer">
+      <div class="footer-inner">
+        
 
         
-        /* 修复文章卡片 div 的宽度. */
-        let fixPostCardWidth = function (srcId, targetId) {
-            let srcDiv = $('#' + srcId);
-            if (srcDiv.length === 0) {
-                return;
-            }
 
-            let w = srcDiv.width();
-            if (w >= 450) {
-                w = w + 21;
-            } else if (w >= 350 && w < 450) {
-                w = w + 18;
-            } else if (w >= 300 && w < 350) {
-                w = w + 16;
-            } else {
-                w = w + 14;
-            }
-            $('#' + targetId).width(w);
-        };
-
-        // 切换TOC目录展开收缩的相关操作.
-        const expandedClass = 'expanded';
-        let $tocAside = $('#toc-aside');
-        let $mainContent = $('#main-content');
-        $('#floating-toc-btn .btn-floating').click(function () {
-            if ($tocAside.hasClass(expandedClass)) {
-                $tocAside.removeClass(expandedClass).hide();
-                $mainContent.removeClass('l9');
-            } else {
-                $tocAside.addClass(expandedClass).show();
-                $mainContent.addClass('l9');
-            }
-            fixPostCardWidth('artDetail', 'prenext-posts');
-        });
-        
-    });
-</script>
-
-    
-
-</main>
-
-
-
-
-    <footer class="page-footer bg-color">
-    
-        <link rel="stylesheet" href="/libs/aplayer/APlayer.min.css">
-<style>
-    .aplayer .aplayer-lrc p {
-        
-        display: none;
-        
-        font-size: 12px;
-        font-weight: 700;
-        line-height: 16px !important;
-    }
-
-    .aplayer .aplayer-lrc p.aplayer-lrc-current {
-        
-        display: none;
-        
-        font-size: 15px;
-        color: #42b983;
-    }
-
-    
-    .aplayer.aplayer-fixed.aplayer-narrow .aplayer-body {
-        left: -66px !important;
-    }
-
-    .aplayer.aplayer-fixed.aplayer-narrow .aplayer-body:hover {
-        left: 0px !important;
-    }
-
-    
-</style>
-<div class="">
-    
-    <div class="row">
-        <meting-js class="col l8 offset-l2 m10 offset-m1 s12"
-                   server="netease"
-                   type="playlist"
-                   id="503838841"
-                   fixed='true'
-                   autoplay='false'
-                   theme='#42b983'
-                   loop='all'
-                   order='random'
-                   preload='auto'
-                   volume='0.7'
-                   list-folded='true'
-        >
-        </meting-js>
-    </div>
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chuyang wei</span>
 </div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a>
+  </div>
 
-<script src="/libs/aplayer/APlayer.min.js"></script>
-<script src="/libs/aplayer/Meting.min.js"></script>
-
-    
-
-    <div class="container row center-align"
-         style="margin-bottom: 0px !important;">
-        <div class="col s12 m8 l8 copy-right">
-            Copyright&nbsp;&copy;
-            
-                <span id="year">2019-2025</span>
-            
-            <a href="/about" target="_blank">chuyang wei</a>
-            |&nbsp;Powered by&nbsp;<a href="https://hexo.io/" target="_blank">Hexo</a>
-            |&nbsp;Theme&nbsp;<a href="https://github.com/blinkfox/hexo-theme-matery" target="_blank">Matery</a>
-            
-            <br>
-            
-            
-            
-                
-            
-            
-                <span id="busuanzi_container_site_pv">
-                &nbsp;|&nbsp;<i class="far fa-eye"></i>&nbsp;Total visits:&nbsp;
-                    <span id="busuanzi_value_site_pv" class="white-color"></span>
-            </span>
-            
-            
-                <span id="busuanzi_container_site_uv">
-                &nbsp;|&nbsp;<i class="fas fa-users"></i>&nbsp;Total visitors:&nbsp;
-                    <span id="busuanzi_value_site_uv" class="white-color"></span>
-            </span>
-            
-            <br>
-
-            <!-- 运行天数提醒. -->
-            
-            <br>
-            
-        </div>
-        <div class="col s12 m4 l4 social-link social-statis">
-    <a href="https://github.com/blinkfox" class="tooltipped" target="_blank" data-tooltip="访问我的GitHub" data-position="top" data-delay="50">
-        <i class="fab fa-github"></i>
-    </a>
-
-
-
-    <a href="mailto:1181062873@qq.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
-        <i class="fas fa-envelope-open"></i>
-    </a>
+        
 
 
 
@@ -944,9 +439,30 @@
 
 
 
-    <a href="tencent://AddContact/?fromId=50&fromSubId=1&subcmd=all&uin=1181062873" class="tooltipped" target="_blank" data-tooltip="QQ联系我: 1181062873" data-position="top" data-delay="50">
-        <i class="fab fa-qq"></i>
-    </a>
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
 
 
 
@@ -954,219 +470,17 @@
 
 
 
-    <a href="/atom.xml" class="tooltipped" target="_blank" data-tooltip="RSS 订阅" data-position="top" data-delay="50">
-        <i class="fas fa-rss"></i>
-    </a>
-
-</div>
-    </div>
-</footer>
-
-<div class="progress-bar"></div>
 
 
-    <!-- 搜索遮罩框 -->
-<div id="searchModal" class="modal">
-    <div class="modal-content">
-        <div class="search-header">
-            <span class="title"><i class="fas fa-search"></i>&nbsp;&nbsp;Search</span>
-            <input type="search" id="searchInput" name="s" placeholder="Please enter a search keyword"
-                   class="search-input">
-        </div>
-        <div id="searchResult"></div>
-    </div>
-</div>
-
-<script type="text/javascript">
-$(function () {
-    var searchFunc = function (path, search_id, content_id) {
-        'use strict';
-        $.ajax({
-            url: path,
-            dataType: "xml",
-            success: function (xmlResponse) {
-                // get the contents from search data
-                var datas = $("entry", xmlResponse).map(function () {
-                    return {
-                        title: $("title", this).text(),
-                        content: $("content", this).text(),
-                        url: $("url", this).text()
-                    };
-                }).get();
-                var $input = document.getElementById(search_id);
-                var $resultContent = document.getElementById(content_id);
-                $input.addEventListener('input', function () {
-                    var str = '<ul class=\"search-result-list\">';
-                    var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
-                    $resultContent.innerHTML = "";
-                    if (this.value.trim().length <= 0) {
-                        return;
-                    }
-                    // perform local searching
-                    datas.forEach(function (data) {
-                        var isMatch = true;
-                        var data_title = data.title.trim().toLowerCase();
-                        var data_content = data.content.trim().replace(/<[^>]+>/g, "").toLowerCase();
-                        var data_url = data.url;
-                        data_url = data_url.indexOf('/') === 0 ? data.url : '/' + data_url;
-                        var index_title = -1;
-                        var index_content = -1;
-                        var first_occur = -1;
-                        // only match artiles with not empty titles and contents
-                        if (data_title !== '' && data_content !== '') {
-                            keywords.forEach(function (keyword, i) {
-                                index_title = data_title.indexOf(keyword);
-                                index_content = data_content.indexOf(keyword);
-                                if (index_title < 0 && index_content < 0) {
-                                    isMatch = false;
-                                } else {
-                                    if (index_content < 0) {
-                                        index_content = 0;
-                                    }
-                                    if (i === 0) {
-                                        first_occur = index_content;
-                                    }
-                                }
-                            });
-                        }
-                        // show search results
-                        if (isMatch) {
-                            str += "<li><a href='" + data_url + "' class='search-result-title'>" + data_title + "</a>";
-                            var content = data.content.trim().replace(/<[^>]+>/g, "");
-                            if (first_occur >= 0) {
-                                // cut out 100 characters
-                                var start = first_occur - 20;
-                                var end = first_occur + 80;
-                                if (start < 0) {
-                                    start = 0;
-                                }
-                                if (start === 0) {
-                                    end = 100;
-                                }
-                                if (end > content.length) {
-                                    end = content.length;
-                                }
-                                var match_content = content.substr(start, end);
-                                // highlight all keywords
-                                keywords.forEach(function (keyword) {
-                                    var regS = new RegExp(keyword, "gi");
-                                    match_content = match_content.replace(regS, "<em class=\"search-keyword\">" + keyword + "</em>");
-                                });
-
-                                str += "<p class=\"search-result\">" + match_content + "...</p>"
-                            }
-                            str += "</li>";
-                        }
-                    });
-                    str += "</ul>";
-                    $resultContent.innerHTML = str;
-                });
-            }
-        });
-    };
-
-    searchFunc('/search.xml', 'searchInput', 'searchResult');
-});
-</script>
-
-    <!-- 白天和黑夜主题 -->
-<div class="stars-con">
-    <div id="stars"></div>
-    <div id="stars2"></div>
-    <div id="stars3"></div>  
-</div>
-
-<script>
-    function switchNightMode() {
-        $('<div class="Cuteen_DarkSky"><div class="Cuteen_DarkPlanet"></div></div>').appendTo($('body')),
-        setTimeout(function () {
-            $('body').hasClass('DarkMode') 
-            ? ($('body').removeClass('DarkMode'), localStorage.setItem('isDark', '0'), $('#sum-moon-icon').removeClass("fa-sun").addClass('fa-moon')) 
-            : ($('body').addClass('DarkMode'), localStorage.setItem('isDark', '1'), $('#sum-moon-icon').addClass("fa-sun").removeClass('fa-moon')),
-            
-            setTimeout(function () {
-            $('.Cuteen_DarkSky').fadeOut(1e3, function () {
-                $(this).remove()
-            })
-            }, 2e3)
-        })
-    }
-</script>
-
-    <!-- 回到顶部按钮 -->
-<div id="backTop" class="top-scroll">
-    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
-        <i class="fas fa-arrow-up"></i>
-    </a>
-</div>
 
 
-    <script src="/libs/materialize/materialize.min.js"></script>
-    <script src="/libs/masonry/masonry.pkgd.min.js"></script>
-    <script src="/libs/aos/aos.js"></script>
-    <script src="/libs/scrollprogress/scrollProgress.min.js"></script>
-    <script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
-    <script src="/js/matery.js"></script>
 
-    
 
-    
-    
-    
 
-    <!-- 雪花特效 -->
-    
 
-    <!-- 鼠标星星特效 -->
-    
+  
 
-     
-        <script src="https://ssl.captcha.qq.com/TCaptcha.js"></script>
-        <script src="/libs/others/TencentCaptcha.js"></script>
-        <button id="TencentCaptcha" data-appid="xxxxxxxxxx" data-cbfn="callback" type="button" hidden></button>
-    
-
-    <!-- Baidu Analytics -->
-
-    <!-- Baidu Push -->
-
-<script>
-    (function () {
-        var bp = document.createElement('script');
-        var curProtocol = window.location.protocol.split(':')[0];
-        if (curProtocol === 'https') {
-            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
-        } else {
-            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
-        }
-        var s = document.getElementsByTagName("script")[0];
-        s.parentNode.insertBefore(bp, s);
-    })();
-</script>
-
-    
-    <script src="/libs/others/clicklove.js" async="async"></script>
-    
-    
-    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
-    
-
-    
-
-    
-
-    <!--腾讯兔小巢-->
-    
-    
-
-    
-
-    
-
-    
-    <script src="/libs/instantpage/instantpage.js" type="module"></script>
-    
+  
 
 </body>
-
 </html>
