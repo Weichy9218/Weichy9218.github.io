@@ -163,6 +163,182 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://weichy9218.github.io/2025/07/02/Diffusion-RL-Explore/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://pic1.imgdb.cn/item/6863d3e258cb8da5c884818d.jpg">
+      <meta itemprop="name" content="chuyang">
+      <meta itemprop="description" content="Follow your heart and intuition, and document your journey through writing and blogging.">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="魏楚扬的博客">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2025/07/02/Diffusion-RL-Explore/" class="post-title-link" itemprop="url">Diffusion_RL_Explore</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2025-07-02 23:22:28 / 修改时间：23:24:38" itemprop="dateCreated datePublished" datetime="2025-07-02T23:22:28+08:00">2025-07-02</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h3 id="项目任务："><a href="#项目任务：" class="headerlink" title="项目任务："></a>项目任务：</h3><p><img src="https://pic1.imgdb.cn/item/68654f2b58cb8da5c88a3529.png" alt="image-20250702161136147"></p>
+<p>GPT给的实现方案: <a target="_blank" rel="noopener" href="https://chatgpt.com/share/6864ed4c-decc-800c-b9ad-3b7cb0d3adc0">https://chatgpt.com/share/6864ed4c-decc-800c-b9ad-3b7cb0d3adc0</a></p>
+<h3 id="学习目标："><a href="#学习目标：" class="headerlink" title="学习目标："></a>学习目标：</h3><p>1.学习生成模型，Diffusion的原理、code</p>
+<p>2.复习强化学习，online\offline, on-policy\off-policy, model-based\model-free, MDP, DPO, PPO, GRPO</p>
+<p>3.理解Diffusion如何和Reinforcement Learning有联系，分清楚在强化学习任务上用Diffusion，和是在生成任务中采用强化学习，二者的区别。</p>
+<p>4.扩散+强化复现代码，看看有没有新问题或优化方案，写一篇论文。<strong>AAAI倒计时30天</strong>。</p>
+<h3 id="学习资料："><a href="#学习资料：" class="headerlink" title="学习资料："></a>学习资料：</h3><p>Diffusion：<a target="_blank" rel="noopener" href="https://lilianweng.github.io/posts/2021-07-11-diffusion-models/">https://lilianweng.github.io/posts/2021-07-11-diffusion-models/</a></p>
+<p>RL-Diffusion: 用强化学习做生成任务，学习建模方式，DDPO等算法</p>
+<ul>
+<li>paper <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2305.13301">https://arxiv.org/pdf/2305.13301</a></li>
+<li>code <a target="_blank" rel="noopener" href="https://github.com/jannerm/ddpo">https://github.com/jannerm/ddpo</a></li>
+</ul>
+<p>Diffuser：最早的规划工作 应该也有toy example</p>
+<ul>
+<li>post <a target="_blank" rel="noopener" href="https://diffusion-planning.github.io/">https://diffusion-planning.github.io</a>  </li>
+<li>paper <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2205.09991">https://arxiv.org/pdf/2205.09991</a> </li>
+<li>code 1) <a target="_blank" rel="noopener" href="https://huggingface.co/docs/diffusers/main/en/using-diffusers/rl">https://huggingface.co/docs/diffusers/main/en/using-diffusers/rl</a> 2) <a target="_blank" rel="noopener" href="https://github.com/jannerm/diffuser">https://github.com/jannerm/diffuser</a></li>
+<li>讲解 <a target="_blank" rel="noopener" href="https://ayushtues.medium.com/rl-with-diffusion-i-d64c6e96d5ed">https://ayushtues.medium.com/rl-with-diffusion-i-d64c6e96d5ed</a></li>
+</ul>
+<p>QSM：一个24年的新工作 YiMa 这个里面有carpole实验，可以复现</p>
+<ul>
+<li><p>code <a target="_blank" rel="noopener" href="https://github.com/Alescontrela/score_matching_rl">https://github.com/Alescontrela/score_matching_rl</a> </p>
+</li>
+<li><p>paper <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2312.11752">https://arxiv.org/pdf/2312.11752</a></p>
+</li>
+</ul>
+<p>Diffusion Policy: 机器人领域路径规划的工作</p>
+<ul>
+<li>code <a target="_blank" rel="noopener" href="https://github.com/real-stanford/diffusion_policy">https://github.com/real-stanford/diffusion_policy</a> </li>
+<li>paper <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2303.04137v4">https://arxiv.org/pdf/2303.04137v4</a></li>
+</ul>
+<p>GenPO: on-policy 轨迹规划</p>
+<ul>
+<li>paper <a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2505.18763">https://arxiv.org/pdf/2505.18763</a></li>
+<li>讲解 <a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/1915431095794632653">https://zhuanlan.zhihu.com/p/1915431095794632653</a></li>
+</ul>
+<p>…… ……</p>
+<p>carpole RL方法：<a target="_blank" rel="noopener" href="https://www.tensorflow.org/tutorials/reinforcement_learning/actor_critic?utm_source=chatgpt.com&hl=zh-cn">https://www.tensorflow.org/tutorials/reinforcement_learning/actor_critic?utm_source=chatgpt.com&amp;hl=zh-cn</a></p>
+<h3 id="知识整理："><a href="#知识整理：" class="headerlink" title="知识整理："></a>知识整理：</h3><p>扩散模型与强化学习的融合思路在于——将去噪采样当作策略执行，并将外部目标（如路径平滑度、避障安全性）作为奖励，借助PG算法直接优化生成过程。<br>例如，可在采样中注入分类器梯度，引导生成过程满足特定约束或回报函数，使生成的轨迹更具任务相关性。</p>
+<p>为什么要用扩散模型？生成模型能给出更丰富的结果、采样过程更连续</p>
+<p>为什么引入强化学习？用Reward作为生成模型的condition。</p>
+<p>原始的RL，序列的生成时autoregressive的, 即we observe a state and then predict the best action to go to the best next state. 如果我们生成整个序列in a single shot. 即we are generating an entire sequence of states connected in time together.</p>
+<p>Trajectory Optimization: not considering a state one by one but looking at the <em>entire</em> trajectory of states at once and optimizing the trajectory to have a high cumulative reward.</p>
+<h4 id="扩散模型×RL-的融合优势"><a href="#扩散模型×RL-的融合优势" class="headerlink" title="扩散模型×RL 的融合优势"></a>扩散模型×RL 的融合优势</h4><ol>
+<li><strong>多模态轨迹生成</strong><ul>
+<li>扩散模型天然可表示多峰分布，不会像单峰高斯策略那样只能输出一条“平均”轨迹。</li>
+</ul>
+</li>
+<li><strong>平滑自然</strong><ul>
+<li>去噪过程连续，生成的动作序列在时序上具有内在的平滑性和连贯性。</li>
+</ul>
+</li>
+<li><strong>条件灵活</strong><ul>
+<li>可在 UNet 输入端加各种条件（初始状态、目标位置、障碍物信息等），一体化地处理不同场景。</li>
+</ul>
+</li>
+<li><strong>易于微调</strong><ul>
+<li>先离线学习轨迹分布，再在线用小量策略梯度更新，既保留了离线数据的多样性，又能快速适应回报信号。</li>
+</ul>
+</li>
+</ol>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://weichy9218.github.io/2025/07/02/Diffusion/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://pic1.imgdb.cn/item/6863d3e258cb8da5c884818d.jpg">
+      <meta itemprop="name" content="chuyang">
+      <meta itemprop="description" content="Follow your heart and intuition, and document your journey through writing and blogging.">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="魏楚扬的博客">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2025/07/02/Diffusion/" class="post-title-link" itemprop="url">Diffusion</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2025-07-02 23:22:14" itemprop="dateCreated datePublished" datetime="2025-07-02T23:22:14+08:00">2025-07-02</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="https://weichy9218.github.io/2025/07/01/MCP/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -661,7 +837,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">4</span>
+          <span class="site-state-item-count">6</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
