@@ -163,6 +163,101 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://weichy9218.github.io/2025/07/04/Diffusers/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://pic1.imgdb.cn/item/6863d3e258cb8da5c884818d.jpg">
+      <meta itemprop="name" content="chuyang">
+      <meta itemprop="description" content="Follow your heart and intuition, and document your journey through writing and blogging.">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="魏楚扬的博客">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2025/07/04/Diffusers/" class="post-title-link" itemprop="url">Diffusers</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2025-07-04 23:08:21 / 修改时间：23:09:26" itemprop="dateCreated datePublished" datetime="2025-07-04T23:08:21+08:00">2025-07-04</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <h1 id="RL-for-LLM"><a href="#RL-for-LLM" class="headerlink" title="RL for LLM"></a>RL for LLM</h1><p>知乎文章 <a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/1916994928132751692">https://zhuanlan.zhihu.com/p/1916994928132751692</a> 学习笔记</p>
+<h1 id="Diffusers"><a href="#Diffusers" class="headerlink" title="Diffusers"></a>Diffusers</h1><p>原始的RL，序列的生成是autoregressive的, 即we observe a state and then predict the best action to go to the best next state. 如果我们生成整个序列in a single shot. 即we are generating an entire sequence of states connected in time together.</p>
+<p>Trajectory Optimization: not considering a state one by one but looking at the <em>entire</em> trajectory of states at once and optimizing the trajectory to have a high cumulative reward.</p>
+<h3 id="背景知识"><a href="#背景知识" class="headerlink" title="背景知识"></a>背景知识</h3><p><strong>Model-Free RL</strong>：不显式学习环境的状态转移概率和奖励函数，直接学习策略或价值函数，如Q-learning、Policy Gradient等.</p>
+<p><strong>Model-Based RL</strong>：先学习一个环境模型（transition model 和 reward model），再利用该模型进行规划或模拟推演，以指导策略优化。通过“先学模型、后规划”的思路，显著提高了样本效率并增强了解释性，但也带来了模型偏差与计算复杂度的挑战。</p>
+<p>model-based vs. model-free：并不矛盾，而是趋于融合</p>
+<ul>
+<li><strong>Model-based RL</strong>：核心在于先构建环境模型，再做规划。</li>
+<li><strong>Model-free RL</strong>：不建模型，直接围绕经验数据去学价值函数或策略。</li>
+</ul>
+<p>虽然二者在“原理”上不同，实际的现代“基于模型”强化学习，往往会大量 <strong>in-herit</strong>（继承、借用）model-free 的技术，即用监督学习拟合模型（简单有效），再用 policy gradient + value function（避免对抗性规划），或者用简单的随机搜索优化未来轨迹。</p>
+<p>但是由于Model并不能完美代表 real world，planning algo在model上学习到的结果可能并不能代表真实世界的规划，甚至反而会放大模型误差。因此World Model非常重要。</p>
+<h3 id="论文阅读"><a href="#论文阅读" class="headerlink" title="论文阅读"></a>论文阅读</h3><p>&#x3D;&#x3D;把读论文当成阅读理解，每一段要总结一个大意，句子之间意思和逻辑，段落之间再整体看逻辑&#x3D;&#x3D;</p>
+<h4 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h4><p>1.介绍Model based强化学习的特点本质上还是监督学习，同时可以用于传统的轨迹规划</p>
+<p>2.然而，用Model based 的强化学习做轨迹优化的系统经常出错，因为Model本身与真实世界存在gap，优化算法会不自觉地“挑模型最不准确的地方”去寻捷径，使得规划结果在真实环境中表现很差。因此要用value function和policy gradient即model-free的方法，不单单依靠轨迹优化</p>
+<p>3.训练一个model要能直接目标为轨迹规划，而不仅去模拟世界，即sampling和planning 要identical。模型设计的目的和方法趋于一致。planning 和 action distribution即采用分布同等重要，融为一体。模型要求和reward function独立（无关）。同时模型还是不断通过结果可以优化的，即规划出来的轨迹随着训练不断优化。<br>–&gt;GPT总结动机：与其先学一个“万能”但难以规划的环境模型，再拿去做优化，不如直接训练一个“天生会被优化”的模型，使得采样与规划浑然一体，并且从模型设计、训练目标到泛化能力，都围绕如何<strong>生成好轨迹</strong>这一核心来展开。这样能更高效、更稳健地解决数据驱动的轨迹优化问题。</p>
+<p>4.Diffuser: a trajectory-level diffusion probabilistic model  同时预测所有时间步。 调整采样过程，增加约束和指导，以实现trajectory recovery with high reward<br>优点：用整条生成轨迹计算复合loss，提高序列建模能力。支持mutiple rewards。把“生成模型”和“规划器”合二为一能够让planning更有效，即当模型学会更准确地“自我采样出高质量轨迹”时，这个“采样器”本身就成了一个更强的“规划器”——它会默认考虑长期回报，而不是只关注一步的局部最优。</p>
+<p><img src="https://pic1.imgdb.cn/item/6867ee2d58cb8da5c8909d3a.png" alt="image-20250704230029129"></p>
+<ol>
+<li><strong>输入</strong>：任意长度的初始噪声轨迹（二维 array）。</li>
+<li><strong>去噪核心</strong>：<ul>
+<li><strong>局部小感受野</strong> 保证单步更新高效且专注于相邻依赖，</li>
+<li><strong>多步迭代合成</strong> 实现全局连贯。</li>
+</ul>
+</li>
+<li><strong>引导函数 $\mathcal J$</strong> 可插拔，用于在采样过程中注入任务或约束信息。</li>
+<li><strong>输出</strong>：一条从 $t!-!T$ 到 $t!+!T$ 的、既符合学习到的动力学又优化了目标的“规划轨迹”。</li>
+</ol>
+<p>这样，Diffuser 就能在“学习模型”和“在线规划”之间模糊界限，实现<strong>端到端</strong>、<strong>面向整条轨迹</strong>的高效非贪心规划。</p>
+<p>核心贡献：<br>a denoising diffusion model designed for trajectory data and an associated probabilistic framework for behavior synthesis. </p>
+<p>注：</p>
+<p>在扩散模型里，采样（Sampling）与去噪（Denoising）本质上是 <strong>同一个过程</strong>，只是从不同的角度去描述：</p>
+<ul>
+<li><strong>去噪（Denoising）</strong>：指给定一个带噪声的中间变量 $x_t$，用模型 $ε_θ$（或直接预测下一级干净样本 $x_{t-1}$）来“去除”一部分噪声，恢复到更干净的版本。</li>
+<li><strong>采样（Sampling）</strong>：指从纯噪声 $x_T$ 开始，反向迭代若干步去噪，最终得到样本 $x_0$。</li>
+</ul>
+<p>即：<strong>采样 &#x3D; 重复执行去噪多步</strong>，从 $t&#x3D;T\to 0$。</p>
+
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="https://weichy9218.github.io/2025/07/02/Diffusion-RL-Explore/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -264,63 +359,6 @@
 </li>
 </ol>
 
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://weichy9218.github.io/2025/07/02/Diffusion/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="https://pic1.imgdb.cn/item/6863d3e258cb8da5c884818d.jpg">
-      <meta itemprop="name" content="chuyang">
-      <meta itemprop="description" content="Follow your heart and intuition, and document your journey through writing and blogging.">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="魏楚扬的博客">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2025/07/02/Diffusion/" class="post-title-link" itemprop="url">Diffusion</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2025-07-02 23:22:14" itemprop="dateCreated datePublished" datetime="2025-07-02T23:22:14+08:00">2025-07-02</time>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          
       
     </div>
 
