@@ -1,6 +1,6 @@
 # Chuyang Wei — research homepage
 
-A custom, static academic homepage. No framework or build step is required.
+A compact, custom academic homepage. No framework or build step is required.
 
 ## Preview
 
@@ -14,6 +14,7 @@ Open http://127.0.0.1:8792. The homepage is `index.html`; the curated notes inde
 
 - `index.html`: biography, research, projects, publications, education.
 - `assets/profile/site.css`: layout, design tokens, responsive and dark themes.
+- `assets/profile/chuyang-wei-cv-2026-06.pdf`: supplied Chinese CV, June 2026, preserved byte for byte.
 - `assets/profile/site.js`: optional theme preference. All content and navigation work without JavaScript.
 - `assets/profile/fonts/`: self-hosted DM Sans and Libre Caslon Display, with their SIL Open Font License files.
 
