@@ -6,7 +6,11 @@ from urllib.parse import unquote, urlsplit
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGES = [ROOT / 'index.html', ROOT / 'notes/index.html']
+PAGES = [
+    ROOT / 'index.html',
+    ROOT / 'notes/index.html',
+    *sorted((ROOT / 'notes').glob('*/index.html')),
+]
 
 
 class Page(HTMLParser):
