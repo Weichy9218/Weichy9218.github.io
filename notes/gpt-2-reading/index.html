@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>GPT-2 论文精读：无监督多任务学习的起点 | Chuyang Wei</title>
+    <meta
+      name="description"
+      content="精读 Radford et al. (2019) GPT-2 论文：把多任务统一为条件语言建模、WebText 数据筛选、Byte-level BPE、Pre-LN 与残差缩放初始化，以及零样本迁移的历史意义。"
+    />
+    <link rel="canonical" href="https://weichy9218.github.io/notes/gpt-2-reading/" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="GPT-2 论文精读：无监督多任务学习的起点" />
+    <meta
+      property="og:description"
+      content="梳理 GPT-2 的核心假设、WebText 数据构建、Byte-level BPE 与 Pre-LN 架构细节，以及零样本结果的启示。"
+    />
+    <meta property="og:url" content="https://weichy9218.github.io/notes/gpt-2-reading/" />
+    <link rel="icon" href="../../assets/profile/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../../assets/profile/fonts.css" />
+    <link rel="stylesheet" href="../../assets/profile/site.css" />
+    <script src="../../assets/profile/site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page">
+      <header class="site-header">
+        <a class="wordmark" href="../../">CW<span> / Notes</span></a>
+        <nav aria-label="Main navigation">
+          <a href="../../">Home</a
+          ><a href="../" class="nav-active">Notes</a
+          ><a href="../../cv/">CV</a>
+        </nav>
+        <button
+          class="theme-button"
+          type="button"
+          aria-label="Use dark theme"
+          aria-pressed="false"
+          hidden
+        >
+          <span aria-hidden="true">◐</span>
+        </button>
+      </header>
+
+      <main class="note-main" id="main">
+        <article class="note-article">
+          <header class="note-header">
+            <p class="eyebrow">NOTE · 2025-02-19</p>
+            <h1>GPT-2 论文精读：无监督多任务学习的起点</h1>
+            <p class="note-meta">
+              Chuyang Wei · Paper Reading · Radford et al. (2019)
+            </p>
+          </header>
+
+          <p>
+            重读 OpenAI 2019 年的 GPT-2 论文（<em>Language Models are Unsupervised Multitask Learners</em>），最有意思的地方并不是模型架构有多复杂——事实上它和
+            GPT-1 几乎同源——而是它正式提出了一个后来改写整个 NLP 范式的判断：<strong>只要数据够干净、规模够大，纯无监督的下一个词预测本身就能涌现出零样本多任务能力。</strong>
+          </p>
+
+          <section id="core-idea">
+            <h2>一、核心思想：把一切任务写成 p(output | input, task)</h2>
+            <p>
+              在 BERT 和 GPT-1 主导的时期，主流做法是“无监督预训练 + 针对单个下游任务的监督微调”。单任务模型本质上在估计
+              <span class="math-inline">p(output | input)</span>，换一个任务就得重换任务头、重标数据集。
+            </p>
+            <p>
+              GPT-2 指出，通用系统应当建模的是带有任务条件的分布：
+            </p>
+            <div class="math-block">
+              p(output | input, task)
+            </div>
+            <p>
+              而语言本身就已经提供了最灵活的任务描述方式——比如“<code>(translate to french, english text, french text)</code>”或者“<code>(answer the question, document, question, answer)</code>”。在足够庞大、多样的互联网语料里，人类早已在自然行文中写下了大量类似的任务示范。只要语言模型容量足够，它为了把下一个词预测得更准，就<strong>不得不</strong>顺带学会这些隐含任务，从而在测试时不更新任何参数就能做零样本（zero-shot）推理。
+            </p>
+          </section>
+
+          <section id="webtext">
+            <h2>二、数据工程：WebText 的启发式质量过滤</h2>
+            <p>
+              GPT-2 没有直接把粗糙的 Common Crawl 全量灌进训练，而是用了一个非常聪明的人工质量代理来构建
+              <strong>WebText</strong>：
+            </p>
+            <ul>
+              <li>
+                <strong>用社区投票充当人工质检</strong>：只抓取 Reddit 上获得至少
+                <strong>3 个 karma</strong> 的外部链接页面，相当于借用人类读者的筛选来剔除大量垃圾页和机器生成噪音。
+              </li>
+              <li>
+                <strong>规模与防泄漏</strong>：清洗去重后得到约 <strong>800 万篇文档、40GB 文本</strong>；论文还特意移除了所有
+                Wikipedia 页面，避免与常见下游评测集高度重叠而虚高指标。
+              </li>
+            </ul>
+            <p>
+              回头看，WebText 其实是后来整个“数据质量优先于裸数据量”路线的早期样本。
+            </p>
+          </section>
+
+          <section id="architecture">
+            <h2>三、词表与模型结构里的工程细节</h2>
+            <h3>1. Byte-level BPE：彻底消灭 OOV</h3>
+            <p>
+              传统词级或 Unicode 字符级 BPE 要么遇到生僻词就变成 <code>&lt;UNK&gt;</code>，要么基础词表过大（完整
+              Unicode 超过 13 万字符）。GPT-2 直接在 <strong>UTF-8 字节层（基础词表仅 256）</strong>上跑
+              BPE，把最终词表定在 <strong>50,257</strong>：既保证任意字符串都能无损编码、零 OOV，又额外加了一条规则——<strong>禁止跨字符类别合并</strong>（比如不把
+              <code>dog.</code>、<code>dog!</code>、<code>dog?</code> 合并成不同词元），避免标点浪费词表槽位，只对空格保留例外以维持压缩效率。
+            </p>
+
+            <h3>2. 从 GPT-1 到 GPT-2 的架构微调</h3>
+            <ul>
+              <li>
+                <strong>Pre-LN 残差连接</strong>：把 LayerNorm 移到每个子模块（自注意力、FFN）的输入端而非输出端，并在最后一个自注意力块后再补一层
+                LayerNorm——这个小改动后来几乎成了大语言模型的标配，训练深层网络稳定得多。
+              </li>
+              <li>
+                <strong>残差初始化缩放</strong>：在初始化时把残差层权重乘以
+                <span class="math-inline">1 / √N</span>（<span class="math-inline">N</span>
+                为残差层总数），控制残差流随深度累加时的方差增长。
+              </li>
+              <li>
+                <strong>上下文与批大小</strong>：上下文窗口从 512 扩到 <strong>1024</strong>，词表扩到 50,257，batch size
+                增至 512。
+              </li>
+            </ul>
+
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>规格</th>
+                    <th>参数量</th>
+                    <th>层数 (Layers)</th>
+                    <th>隐层维度 (d<sub>model</sub>)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Small (GPT-1 同级)</strong></td>
+                    <td>117M</td>
+                    <td>12</td>
+                    <td>768</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Medium</strong></td>
+                    <td>345M</td>
+                    <td>24</td>
+                    <td>1024</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Large</strong></td>
+                    <td>762M</td>
+                    <td>36</td>
+                    <td>1280</td>
+                  </tr>
+                  <tr>
+                    <td><strong>XL (GPT-2)</strong></td>
+                    <td>1.5B</td>
+                    <td>48</td>
+                    <td>1600</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="results">
+            <h2>四、零样本结果与回看意义</h2>
+            <ul>
+              <li>
+                <strong>语言建模全面领先</strong>：在 8 个语言建模评测集里，1.5B 模型在零样本条件下直接刷新了其中
+                <strong>7 个</strong>的 SOTA，而且在 LAMBADA（长程上下文猜尾词）上把困惑度从 99.8 压到 8.6。
+              </li>
+              <li>
+                <strong>开放任务初显雏形但仍不成熟</strong>：在 CoQA 阅读理解上零样本达到 55 F1（接近部分早年监督基线）；在
+                CNN/Daily Mail 摘要任务里，只在原文末尾拼上 <code>TL;DR:</code> 就能诱发摘要行为；但在翻译和摘要的绝对质量上，仍然明显弱于专门微调的有监督模型。
+              </li>
+              <li>
+                <strong>最关键的信号——模型仍在欠拟合（Underfitting）</strong>：即便扩展到 1.5B，GPT-2 在
+                WebText 上的训练损失仍未收敛见顶，4 个尺度的对数线性曲线几乎没有放缓迹象——这直接为一年后的
+                <strong>Scaling Laws</strong> 和 <strong>GPT-3（175B + In-Context Learning）</strong>埋下了伏笔。
+              </li>
+            </ul>
+          </section>
+
+          <section class="note-refs" id="references">
+            <h2>参考资料</h2>
+            <ol>
+              <li>
+                Alec Radford, Jeffrey Wu, Rewon Child, David Luan, Dario Amodei, Ilya Sutskever (2019),
+                <em>Language Models are Unsupervised Multitask Learners</em>, OpenAI.
+              </li>
+            </ol>
+          </section>
+        </article>
+      </main>
+
+      <footer class="site-footer">
+        <span>© 2026 Chuyang Wei</span>
+        <a href="../">← All notes</a>
+        <a href="../../">Home</a>
+      </footer>
+    </div>
+  </body>
+</html>

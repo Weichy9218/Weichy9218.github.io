@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>MCP 架构与工程笔记 | Chuyang Wei</title>
+    <meta
+      name="description"
+      content="Model Context Protocol (MCP) 协议架构、与 Function Calling / Agent 的边界、三大核心原语、JSON-RPC 交互流程与工程落地取舍。"
+    />
+    <link rel="canonical" href="https://weichy9218.github.io/notes/mcp/" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="MCP（Model Context Protocol）架构与工程笔记" />
+    <meta
+      property="og:description"
+      content="梳理 MCP 协议架构、三大原语、JSON-RPC 生命周期以及多工具接入时的工程取舍。"
+    />
+    <meta property="og:url" content="https://weichy9218.github.io/notes/mcp/" />
+    <link rel="icon" href="../../assets/profile/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../../assets/profile/fonts.css" />
+    <link rel="stylesheet" href="../../assets/profile/site.css" />
+    <script src="../../assets/profile/site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page">
+      <header class="site-header">
+        <a class="wordmark" href="../../">CW<span> / Notes</span></a>
+        <nav aria-label="Main navigation">
+          <a href="../../">Home</a
+          ><a href="../" class="nav-active">Notes</a
+          ><a href="../../cv/">CV</a>
+        </nav>
+        <button
+          class="theme-button"
+          type="button"
+          aria-label="Use dark theme"
+          aria-pressed="false"
+          hidden
+        >
+          <span aria-hidden="true">◐</span>
+        </button>
+      </header>
+
+      <main class="note-main" id="main">
+        <article class="note-article">
+          <header class="note-header">
+            <p class="eyebrow">NOTE · 2025-07-01</p>
+            <h1>MCP（Model Context Protocol）架构与工程笔记</h1>
+            <p class="note-meta">Chuyang Wei · Agent Infrastructure / Protocol</p>
+          </header>
+
+          <p>
+            <strong>MCP（Model Context Protocol）</strong>是由 Anthropic 发起并开源的一套上下文与工具接入协议。如果说
+            LSP（Language Server Protocol）把“不同编辑器 × 不同编程语言”的集成复杂度从
+            <code>M × N</code> 降成了 <code>M + N</code>，MCP
+            做的就是同一件事：把<strong>不同 AI 应用（Host）</strong>与<strong>不同外部数据源、工具、服务（Server）</strong>之间的通信接口标准化，避免每个
+            Agent 框架都要为数据库、GitHub、Slack、本地文件系统重写一遍适配胶水代码。
+          </p>
+
+          <section id="boundary">
+            <h2>一、先把概念边界划清：Function Calling、MCP 与 Agent</h2>
+            <p>
+              这几个词经常被混在一起说，其实它们分别落在不同层级，彼此是配合关系而非替代关系：
+            </p>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>概念</th>
+                    <th>所在层级</th>
+                    <th>核心职责</th>
+                    <th>典型形态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Function Calling</strong></td>
+                    <td>模型能力层</td>
+                    <td>模型根据上下文判断何时调用外部能力，并输出结构化参数（如 JSON）</td>
+                    <td>OpenAI / Claude / Gemini API 的 <code>tools</code> 参数</td>
+                  </tr>
+                  <tr>
+                    <td><strong>MCP</strong></td>
+                    <td>通信协议层</td>
+                    <td>规定 AI 应用如何发现、鉴权、调用外部工具与读取上下文资源，与具体模型解耦</td>
+                    <td>基于 JSON-RPC 2.0 的 Client–Server 协议</td>
+                  </tr>
+                  <tr>
+                    <td><strong>AI Agent</strong></td>
+                    <td>系统循环层</td>
+                    <td>编排规划、记忆、工具调用与环境反馈循环，自主推进多步任务</td>
+                    <td>借助 Function Calling 决定动作，通过 MCP 执行外部交互</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p>
+              一句话概括：<strong>Function Calling 解决“模型怎么提出调用请求”，MCP 解决“宿主应用怎么用统一协议去连各种外部工具”，Agent 负责把多步调用串成闭环。</strong>
+            </p>
+          </section>
+
+          <section id="architecture">
+            <h2>二、整体架构与传输层</h2>
+            <p>
+              MCP 采用经典的 <strong>Host – Client – Server</strong> 三层角色划分，底层的消息编码统一使用
+              <strong>JSON-RPC 2.0</strong>：
+            </p>
+
+            <figure class="note-figure">
+              <svg viewBox="0 0 680 220" role="img" aria-label="MCP Host Client Server 架构图">
+                <defs>
+                  <marker id="mcp-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--accent)" />
+                  </marker>
+                </defs>
+                <!-- Host container -->
+                <rect x="16" y="18" width="236" height="184" rx="6" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5" />
+                <text x="32" y="42" fill="var(--ink)" font-size="13" font-weight="600">Host（AI 应用 / IDE / Agent）</text>
+                <text x="32" y="60" fill="var(--muted)" font-size="11">管理 LLM 上下文、用户授权与安全边界</text>
+
+                <!-- Client boxes inside Host -->
+                <rect x="34" y="78" width="200" height="46" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1.2" />
+                <text x="48" y="99" fill="var(--ink)" font-size="12" font-weight="600">MCP Client A</text>
+                <text x="48" y="115" fill="var(--muted)" font-size="10.5">1:1 会话 · 能力协商 · 路由</text>
+
+                <rect x="34" y="138" width="200" height="46" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1.2" />
+                <text x="48" y="159" fill="var(--ink)" font-size="12" font-weight="600">MCP Client B</text>
+                <text x="48" y="175" fill="var(--muted)" font-size="10.5">1:1 会话 · 隔离不同服务</text>
+
+                <!-- Arrows -->
+                <line x1="238" y1="101" x2="386" y2="101" stroke="var(--accent)" stroke-width="1.5" marker-start="url(#mcp-arrow)" marker-end="url(#mcp-arrow)" />
+                <text x="312" y="92" text-anchor="middle" fill="var(--muted)" font-size="10.5">JSON-RPC · stdio</text>
+
+                <line x1="238" y1="161" x2="386" y2="161" stroke="var(--accent)" stroke-width="1.5" marker-start="url(#mcp-arrow)" marker-end="url(#mcp-arrow)" />
+                <text x="312" y="152" text-anchor="middle" fill="var(--muted)" font-size="10.5">JSON-RPC · HTTP</text>
+
+                <!-- Server A -->
+                <rect x="394" y="68" width="270" height="64" rx="6" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5" />
+                <text x="410" y="92" fill="var(--ink)" font-size="12.5" font-weight="600">Local MCP Server</text>
+                <text x="410" y="112" fill="var(--muted)" font-size="11">本地文件 / Git / SQLite（子进程运行）</text>
+
+                <!-- Server B -->
+                <rect x="394" y="142" width="270" height="60" rx="6" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5" />
+                <text x="410" y="166" fill="var(--ink)" font-size="12.5" font-weight="600">Remote MCP Server</text>
+                <text x="410" y="185" fill="var(--muted)" font-size="11">远程 API / 企业知识库 / SaaS 服务</text>
+              </svg>
+              <figcaption>MCP 的 Host – Client – Server 架构：每个 Client 与对应 Server 维持独立 1:1 连接。</figcaption>
+            </figure>
+
+            <ul>
+              <li>
+                <strong>Host（宿主）</strong>：直接面对用户的 AI 应用（如 IDE、桌面客户端或自研 Agent
+                Runtime），负责拉起和管理多个 Client，汇总上下文，并把控敏感操作的权限审批。
+              </li>
+              <li>
+                <strong>Client（客户端）</strong>：嵌在 Host 内部，与某个特定 Server 保持
+                <strong>1:1</strong> 连接，负责握手协商、能力发现与消息路由。这样可以把不同 Server 的故障与权限相互隔离。
+              </li>
+              <li>
+                <strong>Server（服务端）</strong>：轻量级能力提供方，通过标准接口向外暴露
+                Tools、Resources 和 Prompts，背后可以接本地进程，也可以代理远程云服务。
+              </li>
+            </ul>
+            <p>
+              传输层（Transport）目前主要有两种：本地工具常用 <strong>stdio</strong>（Host 直接把 Server
+              当子进程拉起，零网络配置、延迟低）；远程服务则走 <strong>Streamable HTTP</strong>（取代了早期独立的
+              HTTP+SSE 拆分方案，更适配无状态部署与标准鉴权中间件）。
+            </p>
+          </section>
+
+          <section id="primitives">
+            <h2>三、三大核心原语与控制权划分</h2>
+            <p>
+              MCP 把 Server 能提供的东西抽象成三类原语，有意思的是它们对应着三种不同的<strong>调用控制权</strong>：
+            </p>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>原语</th>
+                    <th>控制方</th>
+                    <th>定位与例子</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Tools</strong></td>
+                    <td>模型控制（Model-controlled）</td>
+                    <td>可执行、可能产生副作用的操作，如查数据库、发请求、改代码、跑测试；需经 Host 安全策略或用户确认</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Resources</strong></td>
+                    <td>应用控制（Application-controlled）</td>
+                    <td>以 URI 标识的只读上下文数据，如文件内容、日志快照、表结构 Schema，由 Host 决定何时塞进上下文</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Prompts</strong></td>
+                    <td>用户控制（User-controlled）</td>
+                    <td>Server 预置的可复用提示词模板或工作流入口（例如在聊天框里用 <code>/</code> 显式触发）</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p>
+              此外，协议还留了反向通道（如 <code>sampling</code>），允许 Server 在必要时向 Host 请求做一次
+              LLM 补全，但最终是否放行、用什么模型、给多少预算依然由 Host 掌握。
+            </p>
+          </section>
+
+          <section id="lifecycle">
+            <h2>四、基本交互生命周期</h2>
+            <p>一次完整的 MCP 会话通常分四步：能力握手 → 发现能力 → 执行调用 → 关闭连接。</p>
+            <ol>
+              <li>
+                <strong>初始化握手（<code>initialize</code>）</strong>：Client 与 Server
+                交换协议版本和双方支持的能力集（capabilities），随后发送 <code>notifications/initialized</code>
+                确认就绪。
+              </li>
+              <li>
+                <strong>能力发现（<code>tools/list</code> / <code>resources/list</code>）</strong>：Client
+                拉取可用工具的名称、自然语言描述和 JSON Schema 参数定义，交给 Host 拼入模型上下文。
+              </li>
+              <li>
+                <strong>执行调用（<code>tools/call</code>）</strong>：模型产出调用意图后，Client 把请求发往对应
+                Server，Server 执行具体逻辑并返回结构化内容或错误信息。
+              </li>
+              <li>
+                <strong>会话结束</strong>：任务完成或 Host 退出时关闭传输通道（stdio 关闭子进程，HTTP 终止会话）。
+              </li>
+            </ol>
+            <pre><code>// Client -> Server: 调用工具
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "query_papers",
+    "arguments": { "topic": "delayed feedback", "limit": 5 }
+  }
+}
+
+// Server -> Client: 返回结果
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
+    "content": [{ "type": "text", "text": "..." }],
+    "isError": false
+  }
+}</code></pre>
+          </section>
+
+          <section id="tradeoffs">
+            <h2>五、工程落地里的几个真实取舍</h2>
+            <p>把 MCP 真正接入 Agent 系统之后，有几个痛点很值得提前想清楚：</p>
+            <ul>
+              <li>
+                <strong>工具 Schema 膨胀吃上下文</strong>：一旦同时挂载十几个 MCP Server、上百个工具，光把所有
+                <code>tools/list</code> 的 JSON Schema 全塞进 system prompt 就可能吃掉数万 token，还会明显拉低模型选工具的准确率。实际工程里往往需要配合按需检索（tool search）或渐进式加载，而不是无脑全量暴露。
+              </li>
+              <li>
+                <strong>安全边界与 Prompt Injection</strong>：外部工具返回的数据本身不可信，一旦工具同时具备“读外部网页/邮件”和“写本地文件/发网络请求”两类权限，就存在间接提示词注入风险。权限审批与沙盒隔离必须由
+                Host 兜底，不能指望模型自觉遵守。
+              </li>
+              <li>
+                <strong>什么时候不必硬上 MCP</strong>：MCP 最大的红利在于<strong>跨应用复用和生态共享</strong>（一次写好 Server，多个客户端直接用）。如果只是自家单一 Agent
+                内部的轻量脚本或高吞吐推理管线，直接调本地 CLI 或原生函数往往比多绕一层进程/RPC 更轻、更好调试。
+              </li>
+            </ul>
+          </section>
+
+          <section class="note-refs" id="references">
+            <h2>参考资料</h2>
+            <ol>
+              <li>
+                Model Context Protocol Official Specification &amp; Architecture：<a
+                  href="https://modelcontextprotocol.io/"
+                  >modelcontextprotocol.io ↗</a
+                >
+              </li>
+              <li>
+                Anthropic (2024.11)：<a
+                  href="https://www.anthropic.com/news/model-context-protocol"
+                  ><em>Introducing the Model Context Protocol</em> ↗</a
+                >
+              </li>
+            </ol>
+          </section>
+        </article>
+      </main>
+
+      <footer class="site-footer">
+        <span>© 2026 Chuyang Wei</span>
+        <a href="../">← All notes</a>
+        <a href="../../">Home</a>
+      </footer>
+    </div>
+  </body>
+</html>

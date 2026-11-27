@@ -3,12 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <title>Notes | Chuyang Wei</title>
     <meta
       name="description"
-      content="Research notes and reading reflections by Chuyang Wei on RSI, delayed feedback, agents, and language models."
+      content="Research notes and technical surveys by Chuyang Wei on RSI, Benchmark RSI, agents, diffusion RL, and time series."
     />
-    <link rel="icon" href="../assets/profile/favicon.svg" />
+    <link rel="canonical" href="https://weichy9218.github.io/notes/" />
+    <link rel="icon" href="../assets/profile/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="../assets/profile/fonts.css" />
     <link rel="stylesheet" href="../assets/profile/site.css" />
     <script src="../assets/profile/site.js" defer></script>
@@ -30,7 +32,7 @@
           aria-pressed="false"
           hidden
         >
-          ◐
+          <span aria-hidden="true">◐</span>
         </button>
       </header>
       <main class="notes-main" id="main">
@@ -38,8 +40,8 @@
           <p class="eyebrow">THE NOTEBOOK / 2025 – 2026</p>
           <h1>Notes.</h1>
           <p class="section-intro">
-            Reading notes and research reflections, mostly in Chinese. Earlier
-            2025 entries retain their original dates and layouts.
+            Research notes, paper readings, and technical surveys, mostly in
+            Chinese.
           </p>
           <div class="publication-list">
             <article class="publication">
@@ -66,6 +68,7 @@
                 >
               </div>
             </article>
+
             <article class="publication">
               <div class="venue"><time>2026.11</time></div>
               <div>
@@ -75,56 +78,74 @@
                   >
                 </h3>
                 <p class="paper-summary">
-                  Liquid AI 于天舒访谈技术笔记：端侧硬件约束、Data Scaling、多轮 Agent RL、Benchmark 闭环与 RSI 验证速度瓶颈。
+                  Liquid AI 于天舒访谈技术笔记：端侧硬件约束、Data Scaling、多轮 Agent
+                  RL、Benchmark 闭环与 RSI 验证速度瓶颈。
                 </p>
               </div>
             </article>
+
             <article class="publication">
-              <div class="venue"><time>2025</time></div>
+              <div class="venue"><time>2025.09</time></div>
               <div>
                 <h3>
-                  <a href="../2025/09/04/时间序列调研/">Time Series 调研 ↗</a>
+                  <a href="./time-series-survey/">时间序列建模与大模型调研 ↗</a>
                 </h3>
+                <p class="paper-summary">
+                  梳理时间序列任务痛点、Transformer / Linear / Diffusion / Mamba
+                  演进、时序大模型与 Agent 范式，以及模型空间学习（MSL/ESN）实践总结。
+                </p>
               </div>
             </article>
+
             <article class="publication">
-              <div class="venue"><time>2025</time></div>
-              <div>
-                <h3><a href="../2025/07/04/Diffusers/">Diffusers ↗</a></h3>
-              </div>
-            </article>
-            <article class="publication">
-              <div class="venue"><time>2025</time></div>
+              <div class="venue"><time>2025.07</time></div>
               <div>
                 <h3>
-                  <a href="../2025/07/02/Diffusion-RL-Explore/"
-                    >Diffusion_RL_Explore ↗</a
+                  <a href="./diffusion-rl/"
+                    >Diffusion × RL：从 Diffuser 到扩散策略与奖励引导 ↗</a
                   >
                 </h3>
+                <p class="paper-summary">
+                  合并整理 Diffusion for RL 与 RL for Diffusion 两条主线，精读 Diffuser
+                  轨迹级扩散规划，并汇总 Diffusion Policy、DDPO、QSM 与 GenPO。
+                </p>
               </div>
             </article>
+
             <article class="publication">
-              <div class="venue"><time>2025</time></div>
-              <div>
-                <h3><a href="../2025/07/01/MCP/">MCP ↗</a></h3>
-              </div>
-            </article>
-            <article class="publication">
-              <div class="venue"><time>2025</time></div>
+              <div class="venue"><time>2025.07</time></div>
               <div>
                 <h3>
-                  <a href="../2025/02/19/GPT-2-Reading/"
-                    >GPT-2 Paper Reading ↗</a
+                  <a href="./mcp/">MCP（Model Context Protocol）架构与工程笔记 ↗</a>
+                </h3>
+                <p class="paper-summary">
+                  厘清 Function Calling、MCP 与 Agent 边界，拆解 Host–Client–Server
+                  架构、三大原语与多工具接入时的上下文/安全取舍。
+                </p>
+              </div>
+            </article>
+
+            <article class="publication">
+              <div class="venue"><time>2025.02</time></div>
+              <div>
+                <h3>
+                  <a href="./gpt-2-reading/"
+                    >GPT-2 论文精读：无监督多任务学习的起点 ↗</a
                   >
                 </h3>
+                <p class="paper-summary">
+                  精读 Radford et al. (2019)：条件多任务统一视角、WebText 质量过滤、Byte-level
+                  BPE 与 Pre-LN 工程细节。
+                </p>
               </div>
             </article>
           </div>
         </section>
       </main>
       <footer class="site-footer">
-        <div>© 2026 Chuyang Wei</div>
-        <div><a href="../">Research homepage ↗</a></div>
+        <span>© 2026 Chuyang Wei</span>
+        <a href="../">Home</a>
+        <a href="../cv/">CV</a>
       </footer>
     </div>
   </body>

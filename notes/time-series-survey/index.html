@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>时间序列建模与大模型调研 | Chuyang Wei</title>
+    <meta
+      name="description"
+      content="系统梳理时间序列四大任务与数据痛点、从统计方法到 Transformer / Linear / Diffusion / Mamba 的架构演进、时序大模型与 Agent 范式，以及模型空间学习与储备池计算实践。"
+    />
+    <link
+      rel="canonical"
+      href="https://weichy9218.github.io/notes/time-series-survey/"
+    />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="时间序列建模与大模型调研" />
+    <meta
+      property="og:description"
+      content="时间序列核心痛点、架构演进脉络、LLM-TS 与原生基础模型、Agent 视角，以及模型空间学习（MSL/ESN）研究总结。"
+    />
+    <meta
+      property="og:url"
+      content="https://weichy9218.github.io/notes/time-series-survey/"
+    />
+    <link rel="icon" href="../../assets/profile/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../../assets/profile/fonts.css" />
+    <link rel="stylesheet" href="../../assets/profile/site.css" />
+    <script src="../../assets/profile/site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page">
+      <header class="site-header">
+        <a class="wordmark" href="../../">CW<span> / Notes</span></a>
+        <nav aria-label="Main navigation">
+          <a href="../../">Home</a
+          ><a href="../" class="nav-active">Notes</a
+          ><a href="../../cv/">CV</a>
+        </nav>
+        <button
+          class="theme-button"
+          type="button"
+          aria-label="Use dark theme"
+          aria-pressed="false"
+          hidden
+        >
+          <span aria-hidden="true">◐</span>
+        </button>
+      </header>
+
+      <main class="note-main" id="main">
+        <article class="note-article">
+          <header class="note-header">
+            <p class="eyebrow">SURVEY NOTE · 2025-09-04</p>
+            <h1>时间序列建模与大模型调研</h1>
+            <p class="note-meta">
+              Chuyang Wei · Time Series / Foundation Models / Reservoir Computing
+            </p>
+          </header>
+
+          <p>
+            这篇笔记系统整理了时间序列分析的核心问题、大模型之前的代表性架构演进（统计方法、CNN/RNN、Transformer、“线性可赢”反思、Diffusion、SSM/Mamba）、时序大模型与
+            Agent 视角的最新范式，最后附上了我硕士阶段围绕<strong>模型空间学习（Model Space Learning）</strong>与<strong>储备池计算（ESN）</strong>的三篇研究总结。
+          </p>
+
+          <details class="note-tip">
+            <summary>目录（点击展开快速跳转）</summary>
+            <ol>
+              <li><a href="#basics">一、任务分类与核心痛点</a></li>
+              <li><a href="#pre-llm">二、大模型之前的方法演进脉络</a></li>
+              <li><a href="#llm-ts">三、大模型时代的三种时序范式（模态对齐 / 原生基座 / Agent）</a></li>
+              <li><a href="#msl-rc">四、模型空间学习（MSL）与储备池计算实践总结</a></li>
+            </ol>
+          </details>
+
+          <section id="basics">
+            <h2>一、任务分类与核心痛点</h2>
+            <p>
+              时间序列按时间顺序排列，单变量本身带有<strong>顺序性、自相关性、趋势、季节/周期性、异常值、不规则采样与非平稳性</strong>；多变量场景还要叠加<strong>跨通道依赖、外生变量驱动与上下文混杂</strong>。
+            </p>
+
+            <h3>1. 数据层面的五个共性难题</h3>
+            <ul>
+              <li>
+                <strong>不规则采样、缺失与对齐</strong>：现实数据常存在间隔不等、变量异步与“信息性缺失”（例如医疗场景中测不到或未做某项检查本身就带有临床含义），粗暴插值极易扭曲原始动力学。
+              </li>
+              <li>
+                <strong>分布漂移（Distribution Shift）</strong>：非平稳性是时序最具挑战性的痛点，包括协变量漂移（输入分布变）、先验概率漂移（目标分布变）与概念漂移（输入–输出映射关系变），在工业多工况切换与“运行到失效”长尾寿命数据中尤为突出。
+              </li>
+              <li>
+                <strong>多尺度依赖与长序列建模</strong>：真实序列往往同时包含高频局部扰动（如金融日内波动、交通早晚高峰）与缓慢演化的全局趋势（如宏观周期、设备老化）。
+              </li>
+              <li>
+                <strong>多变量关联与外生驱动</strong>：跨变量时滞相关与混杂因素使“相关 ≠ 因果”。例如电价与金融资产强依赖供需、政策与宏观事件，仅看历史数值本质上存在预测上限。
+              </li>
+              <li>
+                <strong>标注稀缺与“指标–价值错位”</strong>：异常点极少且定义随场景变化，公开基准往往难以覆盖真实工况，离线指标提升未必对应线上业务收益。
+              </li>
+            </ul>
+
+            <h3>2. 四类核心任务与解法对照</h3>
+            <p>
+              从建模本质看，<strong>异常检测</strong>可视作极端不平衡的二分类，而<strong>生成建模</strong>则是在概率分布层面完成与预测相近的多步刻画。
+            </p>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>任务类型</th>
+                    <th>核心挑战</th>
+                    <th>常用解决方案</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>分类</strong></td>
+                    <td>动态模式主导、单点判别力弱；变长与相位错位；小样本与跨域泛化差</td>
+                    <td>1NN+DTW、手工特征+SVM；CNN / 原型学习；序列对齐、Patch 分块</td>
+                  </tr>
+                  <tr>
+                    <td><strong>预测</strong></td>
+                    <td>趋势/季节与短期扰动并存；多步误差累积；长序列开销与外生漂移</td>
+                    <td>ARIMA/ETS；LSTM、Transformer、线性分解模型（LTSF-Linear）、扩散模型；滚动再训练</td>
+                  </tr>
+                  <tr>
+                    <td><strong>异常检测</strong></td>
+                    <td>正负样本极端不平衡、标签稀缺；工况演化导致静态阈值失效；早检出与误报权衡</td>
+                    <td>Isolation Forest、One-Class SVM；预测残差与自编码器重构误差；动态阈值与漂移监测</td>
+                  </tr>
+                  <tr>
+                    <td><strong>生成建模</strong></td>
+                    <td>多峰/多模态未来不确定性高；长程一致性与业务约束难保证；缺少统一评测指标</td>
+                    <td>HMM / 状态空间模型；TimeGAN、VAE；条件扩散模型（TimeGrad、CSDI）</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="pre-llm">
+            <h2>二、大模型之前的方法演进脉络</h2>
+            <p>
+              整体演化沿着四条主线推进：<strong>从手工特征到端到端、从单一模型到分解/多尺度混合、从确定性点预测到概率分布建模、从静态部署到在线自适应</strong>。
+            </p>
+
+            <h3>1. 统计方法与早期深度学习</h3>
+            <p>
+              早期以指数平滑、ARIMA/SARIMA、HMM 为代表，依赖平稳性与线性假设；随后树模型、SVM 引入非线性刻画；深度学习阶段，RNN/LSTM
+              以顺序递推和门控保留历史（受限于串行瓶颈），TCN/CNN 用空洞卷积与局部多尺度感受野提取周期模式，GNN
+              则显式把多变量通道建成图来学时空耦合。
+            </p>
+
+            <h3>2. Transformer 改进与「线性可赢（Linear Wins）」反思</h3>
+            <p>
+              自注意力擅长建模长程依赖，衍生出一系列强化<strong>注意力可扩展性 + 时序归纳偏置</strong>的专用架构：
+            </p>
+            <ul>
+              <li>
+                <strong>Autoformer</strong>：把趋势–季节分解内置到网络层间迭代，用子序列级的
+                Auto-Correlation 替代点对点注意力，并在 Decoder 侧累加趋势分量。
+              </li>
+              <li>
+                <strong>FEDformer</strong>：在频域/小波域做子带选择与交互再逆变换回时域，突出低频趋势与主周期，以近线性代价做长跨度预测。
+              </li>
+              <li>
+                <strong>Patching 与跨维度建模（如 PatchTST / Crossformer）</strong>：把连续时间点打包为
+                Patch 降低序列长度并保留局部语义，同时显式权衡通道独立与跨通道交互。
+              </li>
+            </ul>
+            <p>
+              值得注意的是，这一阶段的 Transformer 仍是在单数据集上端到端训练的小模型。随后
+              <strong>LTSF-Linear（DLinear / NLinear）</strong>证明，仅凭“趋势–季节分解 + 两个线性层”或“简单归一化 +
+              线性映射”，就在多项长时序预测基准上追平甚至击败了复杂 Transformer。这引发了社区对<strong>时序归纳偏置（Inductive Bias）</strong>的反思——相比盲目堆注意力，先用模型无关的分解、频域变换或多尺度卷积（如
+              <strong>InceptionTime</strong> 的多尺度 1D 卷积、<strong>TimesNet</strong> 把 1D 序列按主周期折叠为 2D
+              张量再做 2D 卷积）抓住序列结构往往更直接有效。
+            </p>
+
+            <h3>3. 概率生成视角：Diffusion Models</h3>
+            <p>
+              传统 DL/Transformer 多把预测当成回归问题，而扩散模型将其视为<strong>条件概率分布生成</strong>：前向只对“未来窗口”逐步加高斯噪声，历史序列作为条件喂给去噪网络
+              <span class="math-inline">ε̂<sub>θ</sub>(x<sub>t</sub>, t, c)</span>，反向从噪声一步步恢复未来分布。它特别适合多峰、高不确定性的概率预测场景（如
+              TimeGrad、CSDI）。
+            </p>
+
+            <h3>4. 状态空间模型（SSM）与 Mamba</h3>
+            <p>
+              离散线性时不变（LTI）状态空间模型把序列映射写为递推形式，展开后等价于全局卷积：
+            </p>
+            <div class="math-block">
+              x<sub>t</sub> = A x<sub>t−1</sub> + B u<sub>t</sub>, &nbsp;&nbsp; y<sub>t</sub> = C x<sub>t</sub> + D u<sub>t</sub>
+              &nbsp;&nbsp;⇒&nbsp;&nbsp;
+              y<sub>t</sub> = ∑<sub>k≥0</sub> K<sub>k</sub> u<sub>t−k</sub> + D u<sub>t</sub>, &nbsp;&nbsp; K<sub>k</sub> = C A<sup>k</sup> B
+            </div>
+            <ul>
+              <li>
+                <strong>多尺度长记忆</strong>：矩阵 <span class="math-inline">A</span>
+                的特征值模长控制衰减速度——接近 1 则慢衰减（长记忆），较小则快衰减（短记忆）；配合 HiPPO
+                正交多项式基可实现理论最优历史压缩。
+              </li>
+              <li>
+                <strong>近线性并行效率</strong>：相比 RNN 的串行 <span class="math-inline">O(T)</span> 和标准
+                Transformer 的 <span class="math-inline">O(T²)</span>，LTI 卷积可用 FFT 或并行扫描以近线性复杂度一次性并行计算。
+              </li>
+              <li>
+                <strong>Mamba（选择性 SSM）</strong>：纯 LTI 对输入自适应不足，Mamba 让参数
+                <span class="math-inline">Δ<sub>t</sub>, B<sub>t</sub>, C<sub>t</sub></span>
+                随当前输入动态变化——遇到无关噪声放大 <span class="math-inline">Δ<sub>t</sub></span>
+                重置状态，遇到关键模式则持续保留记忆，形成了无注意力、高吞吐的新主干。
+              </li>
+            </ul>
+          </section>
+
+          <section id="llm-ts">
+            <h2>三、大模型时代的三种时序范式</h2>
+            <p>
+              引入大模型的核心动机很明确：追求跨领域/跨频率的 <strong>zero-shot 泛化</strong>、更高的数据效率（few-shot），以及把数值曲线与文本事件、业务上下文做<strong>多模态融合</strong>。但根本难点也一直卡在<strong>模态对齐</strong>——连续、高噪、非平稳的数值流与离散、语义稠密的自然语言存在天然鸿沟。围绕这一矛盾，目前演化出三条主流路线：
+            </p>
+
+            <h3>1. 冻结/微调通用 LLM + 模态对齐</h3>
+            <ul>
+              <li>
+                <strong>Time-LLM（ICLR 2024）</strong>：冻结语言模型主干，通过
+                <em>Patch Reprogramming</em> 用词表中筛选出的一小组“文本原型（text prototypes，如 short up / steady
+                down）”线性重构时序 Patch，再拼接包含数据集背景、任务说明和统计特征（趋势、滞后）的
+                <em>Prompt-as-Prefix</em> 送入冻结 LLM，最后投影回数值空间预测。
+              </li>
+              <li>
+                <strong>TimeCMA（AAAI 2025）</strong>：面向多变量预测，采用双支路编码——轻量时序编码器（TSE）按变量提取数值特征
+                <span class="math-inline">H<sub>T</sub> ∈ ℝ<sup>C×N</sup></span>，冻结 GPT-2 编码变量提示并离线缓存最后
+                token 表征 <span class="math-inline">L<sub>N</sub> ∈ ℝ<sup>N×E</sup></span>；随后不做粗暴拼接，而是用通道级相似度检索（类似交叉注意力）把语言表征聚合回时序特征：
+              </li>
+            </ul>
+            <div class="math-block">
+              Q = ψ<sub>q</sub>(H<sub>T</sub>), &nbsp; K = ψ<sub>k</sub>(L<sub>N</sub>), &nbsp; V = ψ<sub>v</sub>(L<sub>N</sub>)
+              &nbsp;&nbsp;⇒&nbsp;&nbsp;
+              M<sub>T</sub> = softmax(Q ⊗ K), &nbsp; H<sub>C</sub> = ω<sub>c</sub>(V ⊗ M<sub>T</sub>) ⊕ H<sub>T</sub>
+            </div>
+
+            <h3>2. 原生时序基础模型（直接在大规模时序语料上预训练）</h3>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>代表模型</th>
+                    <th>核心编码与架构</th>
+                    <th>特点与取舍</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Chronos</strong> (TMLR 2024)</td>
+                    <td>Mean scaling + 在 [−15, +15] 划分 4096 个等距量化 bin 组成词表，复用 T5/GPT-2 做交叉熵自回归</td>
+                    <td>采样即得概率分布预测，实现简洁；但量化存在精度折损，且不具备自然语言理解能力</td>
+                  </tr>
+                  <tr>
+                    <td><strong>TimesFM</strong> (ICML 2024)</td>
+                    <td>Patch 输入 + Decoder-only Transformer（约 200M 参数，100B 时间点预训练），输出 patch 长度 h &gt; 输入长度 p</td>
+                    <td>一次生成更长输出块减少自回归步数，跨粒度零样本表现逼近单域有监督专模</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Time-MoE</strong> (ICLR 2025)</td>
+                    <td>逐点嵌入 + RMSNorm/RoPE + 稀疏 Top-k MoE 与共享专家（Time-300B 预训练），多分辨率输出 + Huber 损失</td>
+                    <td>在相同激活算力下显著扩大模型容量，精度领先同代稠密原生基座</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3>3. Agent 工作流视角（时序建模自动化与测试时优化）</h3>
+            <p>
+              预测与异常检测的终点往往是场景决策。2025 年以来，越来越多工作不再强行让 LLM 直接吐浮点数组，而是让
+              Agent 编排专业时序模型库、历史检索与迭代反馈：
+            </p>
+            <ul>
+              <li>
+                <strong>TS-Agent（2025.08）</strong>：面向金融时序，依托三类外部结构化知识库——案例库（Case
+                Bank）、现成金融模型代码库（DLinear / TimesNet / PatchTST / 扩散等）与调优知识库——先检索预选候选模型，再通过“Warm-up /
+                Optimization 两阶段轮转”持续修改代码与超参，指标涨就保留、跌就回退；真正更新权重的是底层任务模型，Agent
+                只负责规划与编排。
+              </li>
+              <li>
+                <strong>FLAIRR-TS（2025.08）</strong>：免微调的多智能体测试时优化框架——<em>Retriever</em>
+                用皮尔逊相关系数从历史滑窗里召回最相似的“类比走势片段”，<em>Forecaster</em> 结合类比上下文输出结构化预测数组及置信度说明，<em>Refiner</em>
+                则像元优化器一样根据历史“提示词 → 误差”轨迹迭代改写提示词并触发早停。
+              </li>
+            </ul>
+          </section>
+
+          <section id="msl-rc">
+            <h2>四、模型空间学习（MSL）与储备池计算实践总结</h2>
+            <p>
+              在面对噪声大、采样不齐、序列变长且样本稀缺的真实工业/物理时序时，直接在“数据空间”硬训端到端大网络往往代价高且易过拟合。<strong>模型空间学习（Model Space Learning, MSL）</strong>换了一条路：先为每条序列单独拟合一个轻量动力学小模型（如
+              ESN / ODE-ESN / 状态空间模型），把<strong>“拟合出来的模型本身”</strong>当作序列的高层表征，再在模型参数或函数空间上定义度量并做轻量判别。
+            </p>
+
+            <h3>1. 回声状态网络（ESN）与闭式岭回归</h3>
+            <p>
+              ESN 是一类极高效的简化递归网络：输入权重 <span class="math-inline">W<sup>hx</sup></span>
+              与储备池内部权重 <span class="math-inline">W<sup>hh</sup></span>
+              随机初始化后全程冻结，只需调整谱半径满足回声状态性质（ESP），训练时仅用岭回归一步闭式求解读出权重
+              <span class="math-inline">W<sup>yh</sup></span>：
+            </p>
+            <div class="math-block">
+              h(n) = tanh(W<sup>hh</sup> h(n−1) + W<sup>hx</sup> x(n)), &nbsp;&nbsp;
+              W<sup>hh</sup> ← α W<sup>hh</sup> / ‖λ<sub>max</sub>‖ &nbsp;(0 &lt; α &lt; 1)
+            </div>
+            <div class="math-block">
+              W<sup>yh</sup> = (H<sup>⊤</sup>H + λ<sup>2</sup>I)<sup>−1</sup> H<sup>⊤</sup> Y
+            </div>
+
+            <h3>2. 过往三项工作小结</h3>
+            <ol>
+              <li>
+                <strong>SpaDyn（<a href="https://doi.org/10.1109/TGRS.2024.3504715">IEEE TGRS 2024</a>）— 融合视觉与动态特征的时序异常检测</strong>：针对
+                2D/3D 探地雷达（GPR）空间结构与回波动力学耦合不足的问题，先用视觉检测定位异常区域，再结合水平与垂直局部动态拟合多方向储备池网络并在模型空间判别。
+              </li>
+              <li>
+                <strong>SARC（<a href="https://proceedings.mlr.press/v267/liu25by.html">ICML 2025</a>）— 频谱感知储备池时序分类</strong>：先以
+                HP 滤波去趋势、小波与 FFT 筛出显著频率，再构造“顺序状态 + 周期滞后状态”双通道储备池，拼接多频岭回归读出特征，在 128 个 UCR/UEA 数据集上实现快而准的分类。
+              </li>
+              <li>
+                <strong>连续时间伴随模型空间学习（<a href="https://doi.org/10.1609/aaai.v40i34.40141">AAAI 2026</a>）— 不规则序列故障诊断</strong>：针对不规则采样与工况变化下离散
+                RNN/ESN 梯度传播不稳的问题，将储备池推广到连续时间微分方程并用伴随法（Adjoint Method）实现稳定高效的模型空间优化。
+              </li>
+            </ol>
+          </section>
+        </article>
+      </main>
+
+      <footer class="site-footer">
+        <span>© 2026 Chuyang Wei</span>
+        <a href="../">← All notes</a>
+        <a href="../../">Home</a>
+      </footer>
+    </div>
+  </body>
+</html>
