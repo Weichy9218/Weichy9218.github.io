@@ -4,23 +4,30 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>Diffusion × RL：从 Diffuser 到扩散策略与奖励引导 | Chuyang Wei</title>
+    <title>Diffusion × RL：理论推导、Diffuser 精读与代表算法实验对比 | Chuyang Wei</title>
     <meta
       name="description"
-      content="整理扩散模型与强化学习结合的两条主线（Diffusion for RL 与 RL for Diffusion），精读 Diffuser 的轨迹级规划与引导采样机制，并汇总代表性论文与代码。"
+      content="系统梳理扩散模型与强化学习结合的两条主线（Diffusion for RL 与 RL for Diffusion）：DDPM 与引导采样数学推导、Diffuser (ICML 2022) 算法与 Maze2D/Block Stacking/MuJoCo 完整实验结果，以及 Diffusion Policy、DDPO、QSM 与 GenPO 深度对比。"
     />
     <link rel="canonical" href="https://weichy9218.github.io/notes/diffusion-rl/" />
     <meta property="og:type" content="article" />
-    <meta property="og:title" content="Diffusion × RL：从 Diffuser 到扩散策略与奖励引导" />
+    <meta
+      property="og:title"
+      content="Diffusion × RL：理论推导、Diffuser 精读与代表算法实验对比"
+    />
     <meta
       property="og:description"
-      content="区分 Diffusion for RL 与 RL for Diffusion，拆解 Diffuser 如何把轨迹采样与规划合二为一。"
+      content="从 DDPM 引导采样数学原理出发，精读 Diffuser 完整实验结果，并对比 Diffusion Policy、DDPO、QSM 与 GenPO。"
     />
     <meta property="og:url" content="https://weichy9218.github.io/notes/diffusion-rl/" />
     <link rel="icon" href="../../assets/profile/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="../../assets/profile/fonts.css" />
     <link rel="stylesheet" href="../../assets/profile/site.css" />
+    <link rel="stylesheet" href="../../assets/katex/katex.min.css" />
     <script src="../../assets/profile/site.js" defer></script>
+    <script src="../../assets/katex/katex.min.js" defer></script>
+    <script src="../../assets/katex/auto-render.min.js" defer></script>
+    <script src="../../assets/katex/init.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -46,91 +53,130 @@
       <main class="note-main" id="main">
         <article class="note-article">
           <header class="note-header">
-            <p class="eyebrow">NOTE · 2025-07-04（合并整理自两篇 Diffusion × RL 笔记）</p>
-            <h1>Diffusion × RL：从 Diffuser 到扩散策略与奖励引导</h1>
-            <p class="note-meta">Chuyang Wei · Diffusion Models / Reinforcement Learning / Planning</p>
+            <p class="eyebrow">SURVEY &amp; PAPER READING · 2025-07-04（合并整理自两篇 Diffusion × RL 笔记）</p>
+            <h1>Diffusion × RL：理论推导、Diffuser 精读与代表算法实验对比</h1>
+            <p class="note-meta">
+              Chuyang Wei · Diffusion Models / Offline &amp; Online RL / Trajectory Planning
+            </p>
           </header>
 
           <p>
-            这篇把之前零散记的两篇笔记（<em>Diffusion_RL_Explore</em> 与 <em>Diffusers</em> 精读）合到一起梳理清楚。调研扩散模型和强化学习的交叉方向时，最容易混在一起的是两个完全相反的问题方向——先把两条路线分清，再重点拆解
-            <strong>Diffuser</strong>（Janner et al., ICML 2022）如何把“采样”和“规划”合二为一。
+            这篇笔记将此前的 <em>Diffusion_RL_Explore</em> 与 <em>Diffusers</em> 精读合并为完整技术梳理：先厘清扩散模型与强化学习结合的两条相反主线，再补全
+            DDPM 与条件引导采样的数学形式，接着围绕 <strong>Diffuser（ICML 2022）</strong>展开理论机制、伪代码与 D4RL 完整定量实验拆解，最后纵向对比
+            <strong>Diffusion Policy、DDPO、QSM、GenPO</strong> 四篇关键后续工作。
           </p>
 
-          <section id="two-directions">
-            <h2>一、两条相反的主线：Diffusion for RL vs. RL for Diffusion</h2>
+          <details class="note-tip" open>
+            <summary>目录导航</summary>
+            <ol>
+              <li><a href="#taxonomy">一、两条相反主线：Diffusion for RL vs. RL for Diffusion</a></li>
+              <li><a href="#math">二、理论基础：DDPM 轨迹扩散与测试时梯度引导</a></li>
+              <li><a href="#diffuser">三、精读 Diffuser：采样即规划与 D4RL 完整实验分析</a></li>
+              <li><a href="#extensions">四、四篇代表延伸工作：Diffusion Policy / DDPO / QSM / GenPO</a></li>
+              <li><a href="#takeaways">五、方法对比与工程结论</a></li>
+            </ol>
+          </details>
+
+          <section id="taxonomy">
+            <h2>一、两条相反主线：Diffusion for RL vs. RL for Diffusion</h2>
             <p>
-              同样是把扩散模型和强化学习放进同一个系统，目标和对象可以完全相反：
+              同样把扩散模型与强化学习放进一个框架，研究目标可以是完全相反的两个方向：
             </p>
             <div class="note-table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>方向</th>
-                    <th>解决什么问题</th>
-                    <th>核心建模方式</th>
+                    <th>主线</th>
+                    <th>优化目标</th>
+                    <th>核心建模思路</th>
                     <th>代表工作</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td><strong>Diffusion for RL</strong></td>
-                    <td>用扩散模型提升决策、规划与控制任务的策略表达力</td>
-                    <td>把整条状态–动作轨迹或连续动作分布建模为扩散生成问题，结合奖励引导或 Q 函数对齐来选动作</td>
-                    <td>Diffuser, Diffusion Policy, QSM, GenPO</td>
+                    <td>用扩散模型增强决策、控制与规划能力</td>
+                    <td>把整条状态–动作轨迹或连续多步动作分布建模为扩散生成过程，配合回报引导、Inpainting 或 Q 梯度对齐选出高回报行为</td>
+                    <td>Diffuser (ICML 22), Diffusion Policy (RSS 23), QSM (ICML 24), GenPO (NeurIPS 25)</td>
                   </tr>
                   <tr>
                     <td><strong>RL for Diffusion</strong></td>
-                    <td>用 RL 微调图像/视频等生成模型，对齐难以求导的外部目标</td>
-                    <td>把多步去噪链本身视为一个有限步 MDP（每步去噪即一次动作），用策略梯度直接优化下游奖励（美学、对齐度、压缩率等）</td>
-                    <td>DDPO, DPOK, Flow-GRPO</td>
+                    <td>用 RL 微调文生图/视频等生成模型，对齐不可微外部奖励</td>
+                    <td>把 $K$ 步去噪链本身视为有限步 MDP（去噪步即决策步），用策略梯度直接优化美学、压缩率或 VLM 对齐度等黑盒奖励</td>
+                    <td>DDPO (ICLR 24), DPOK (NeurIPS 23)</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <p>下面重点看第一条线——<strong>用扩散模型做轨迹规划与强化学习策略</strong>。</p>
-          </section>
 
-          <section id="why-diffusion">
-            <h2>二、为什么把扩散模型引入 RL？</h2>
+            <h3>为什么在决策任务中引入扩散模型？</h3>
             <p>
-              传统 RL 生成序列通常是<strong>自回归（autoregressive）</strong>的：观察当前状态
-              <span class="math-inline">s<sub>t</sub></span>，预测单步最优动作
-              <span class="math-inline">a<sub>t</sub></span>，转移到下一状态，如此循环。换成<strong>整条轨迹联合生成（Trajectory Optimization）</strong>后，模型不再一帧一帧贪心决策，而是一次性把整段时间跨度上的状态–动作序列联合看作一张“二维图”去优化累计回报。
+              传统 RL 是<strong>自回归（autoregressive）</strong>的：每一步看到状态 $s_t$，输出动作 $a_t$，进入下一状态。而轨迹级扩散（Trajectory Optimization）一次性在整段规划视界 $H$ 上联合生成状态–动作序列，带来四项结构性优势：
             </p>
-            <p>这种结合带来了四个很直接的优势：</p>
             <ul>
-              <li>
-                <strong>多模态（多峰）轨迹表达</strong>：真实控制任务里往往存在多条同样合理的路径（比如绕过障碍物的左侧或右侧）。传统单峰高斯策略容易把两条好路径平均成一条撞墙的“折中动作”，而扩散模型天然可以表达复杂多峰分布。
-              </li>
-              <li>
-                <strong>时序平滑与长程连贯</strong>：连续去噪过程会同时调整相邻时间步，生成的动作序列天然更平滑，不会像逐帧策略那样高频抖动。
-              </li>
-              <li>
-                <strong>条件与约束注入灵活</strong>：初始状态、终点目标、避障约束或外部奖励信号，既可以作为条件输入网络，也可以在采样阶段通过引导梯度动态注入。
-              </li>
-              <li>
-                <strong>离线分布先验 + 在线信号适配</strong>：先在离线轨迹数据上拟合动力学与行为分布，再用奖励引导或小步在线更新做任务适配，兼顾多样性与样本效率。
-              </li>
+              <li><strong>多模态（多峰）策略表达</strong>：面对绕障左行/右行等等价解，单峰高斯策略容易把两条可行路径平均成一条撞墙动作；扩散模型可无损表达任意复杂多峰分布。</li>
+              <li><strong>时序平滑与长程非贪心</strong>：反向去噪同时精修整条轨迹，避免了逐步贪心误差累积与高频动作抖动。</li>
+              <li><strong>条件与约束即插即用</strong>：初始状态、终点目标、避障或复合多目标奖励可在测试时以引导梯度或 Inpainting 注入，无需重训动力学模型。</li>
+              <li><strong>离线分布先验 + 在线信号微调</strong>：先从离线轨迹学得动力学可行流形，再叠加回报梯度或在线策略更新。</li>
             </ul>
           </section>
 
-          <section id="diffuser">
-            <h2>三、精读 Diffuser：让「采样」与「规划」合二为一</h2>
-            <h3>1. 背景痛点：Model-Based RL 为什么容易“钻模型空子”？</h3>
+          <section id="math">
+            <h2>二、理论基础：DDPM 轨迹扩散与测试时梯度引导</h2>
             <p>
-              Model-Free RL 不显式学环境转移，直接学策略或价值函数（如 Q-learning、Policy Gradient），样本效率偏低；Model-Based
-              RL 先用监督学习拟合一个环境模型（transition model + reward model），再在模型里做规划或模拟推演，样本效率高得多。
+              将一段长度为 $H$ 的轨迹组织为二维矩阵 $\tau^0 \in \mathbb{R}^{(d_s + d_a) \times H}$：
             </p>
-            <p>
-              但现实里，学出来的环境模型和真实世界必然存在误差。如果直接拿强优化器在学出来的模型上搜索高回报轨迹，优化器会不自觉地<strong>专挑环境模型最不准的区域去“钻空子”（model exploitation）</strong>——规划器以为拿到了超高回报，一放到真实环境里执行就崩掉。这也是为什么很多现代
-              Model-Based 方法反而要大量借用 Model-Free 的价值函数与策略梯度来压制这种对抗性误差。
-            </p>
+            $$\tau = \begin{bmatrix} s_0 &amp; s_1 &amp; \cdots &amp; s_H \\ a_0 &amp; a_1 &amp; \cdots &amp; a_H \end{bmatrix}$$
 
-            <h3>2. Diffuser 的核心想法：Sampling = Planning</h3>
+            <h3>2.1 前向加噪与反向去噪</h3>
             <p>
-              <strong>Diffuser</strong>（<em>Planning with Diffusion for Flexible Behavior Synthesis</em>, ICML
-              2022）换了个思路：<strong>与其先学一个泛化的环境动力学模型再外挂规划器，不如直接训练一个轨迹级扩散概率模型，让“生成合法轨迹”和“规划高回报轨迹”变成同一个过程。</strong>
+              <strong>前向扩散过程</strong>是固定的马尔可夫链，按方差表 $\{\beta_i\}_{i=1}^K$ 逐步向真实轨迹 $\tau^0$ 注入高斯噪声（记 $\alpha_i = 1 - \beta_i,\; \bar{\alpha}_i = \prod_{j=1}^i \alpha_j$），支持任意步一步闭式采样：
             </p>
+            $$q(\tau^i \mid \tau^{i-1}) = \mathcal{N}\!\left(\tau^i;\; \sqrt{1 - \beta_i}\,\tau^{i-1},\; \beta_i \mathbf{I}\right), \qquad q(\tau^i \mid \tau^0) = \mathcal{N}\!\left(\tau^i;\; \sqrt{\bar{\alpha}_i}\,\tau^0,\; (1 - \bar{\alpha}_i)\mathbf{I}\right)$$
+            <p>
+              <strong>反向去噪过程</strong>从标准高斯噪声 $\tau^K \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ 出发，由参数化高斯核逐步恢复干净轨迹：
+            </p>
+            $$p_\theta(\tau^{i-1} \mid \tau^i) = \mathcal{N}\!\left(\tau^{i-1};\; \mu_\theta(\tau^i, i),\; \Sigma^i\right)$$
+            <p>
+              在 Ho et al. (2020) 的简化目标下，模型等价于预测注入的噪声 $\epsilon_\theta(\tau^i, i)$（或等价地直接预测去噪均值 $\mu_\theta$）：
+            </p>
+            $$\mathcal{L}_{\text{simple}}(\theta) = \mathbb{E}_{i \sim \mathcal{U}(1, K),\; \tau^0 \sim q,\; \epsilon \sim \mathcal{N}(\mathbf{0}, \mathbf{I})}\!\left[\big\|\epsilon - \epsilon_\theta(\sqrt{\bar{\alpha}_i}\,\tau^0 + \sqrt{1 - \bar{\alpha}_i}\,\epsilon,\; i)\big\|^2\right]$$
+
+            <div class="note-callout">
+              <p class="note-callout-title">概念辨析：Denoising（去噪） vs. Sampling（采样）</p>
+              <p>
+                <strong>去噪</strong>指给定第 $i$ 步带噪样本 $\tau^i$，通过网络单步去除部分噪声得到 $\tau^{i-1}$；<strong>采样</strong>指从纯噪声 $\tau^K$ 出发，沿 $i = K \to 0$ 连续迭代去噪直至生成 $\tau^0$ 的完整过程。
+              </p>
+            </div>
+
+            <h3>2.2 将控制转化为条件推断（Control as Inference）</h3>
+            <p>
+              引入二值最优性变量 $\mathcal{O}_t \in \{0, 1\}$，令 $p(\mathcal{O}_t = 1 \mid s_t, a_t) = \exp(r(s_t, a_t))$，则高回报轨迹的后验分布满足：
+            </p>
+            $$\tilde{p}_\theta(\tau) \propto p_\theta(\tau)\, p(\mathcal{O}_{1:H} = 1 \mid \tau) = p_\theta(\tau)\,\exp\!\big(\mathcal{J}(\tau)\big), \qquad \mathcal{J}(\tau) = \sum_{t=0}^{H} r(s_t, a_t)$$
+            <p>
+              利用一阶泰勒展开近似（类似 Classifier-Guided Diffusion），反向去噪的每一步只需在无条件均值 $\mu_\theta(\tau^i, i)$ 上叠加引导函数梯度 $g = \nabla_\tau \mathcal{J}_\phi(\tau)\big|_{\tau = \mu}$：
+            </p>
+            $$\tilde{p}_\theta(\tau^{i-1} \mid \tau^i, \mathcal{O}_{1:H}) \approx \mathcal{N}\!\left(\tau^{i-1};\; \mu_\theta(\tau^i, i) + \alpha \Sigma^i \nabla_\tau \mathcal{J}_\phi(\mu),\; \Sigma^i\right)$$
+            <p>
+              其中 $\alpha$ 控制引导强度：既可以在测试时自由更换或线性叠加多个 $\mathcal{J}_k(\tau)$ 实现多目标组合，又不改动已经学好的动力学扩散先验 $p_\theta(\tau)$。
+            </p>
+          </section>
+
+          <section id="diffuser">
+            <h2>三、精读 Diffuser（ICML 2022）：采样即规划与完整实验</h2>
+
+            <h3>3.1 动机：Model-Based RL 为什么容易遭遇「模型利用（Model Exploitation）」？</h3>
+            <p>
+              传统 Model-Based RL 先用监督学习拟合单步转移模型 $\hat{T}(s_{t+1} \mid s_t, a_t)$，再在模型上用强规划器（如 CEM / MPPI）搜索最大化回报的动作序列。但任何拟合模型与真实环境都存在误差——<strong>强优化器会系统性地专挑模型最不准、被高估的盲区走捷径</strong>，导致纸面回报极高、真实环境执行崩溃。
+            </p>
+            <p>
+              <a href="https://arxiv.org/abs/2205.09991"><strong>Diffuser</strong></a>（Janner et al., ICML 2022）的核心洞见是<strong>让动力学建模与轨迹规划合二为一（Sampling = Planning）</strong>：
+            </p>
+            <ul>
+              <li><strong>局部小感受野 1D 时序 U-Net</strong>：单步去噪只强约束相邻若干步的动力学可行性，因此与具体轨迹长度解耦；多步迭代去噪把局部一致性逐层传播，合成全局连贯长程计划；</li>
+              <li><strong>Inpainting 强约束起终点</strong>：每完成一步去噪，直接把当前观测状态 $s_0$（及目标状态 $s_H$）覆写回轨迹两端，就像图像补全一样自动生成中间路径。</li>
+            </ul>
 
             <figure class="note-figure">
               <svg viewBox="0 0 680 185" role="img" aria-label="Diffuser 轨迹去噪与引导采样流程">
@@ -140,135 +186,320 @@
                   </marker>
                 </defs>
                 <rect x="16" y="42" width="132" height="72" rx="5" fill="var(--bg)" stroke="var(--line)" stroke-width="1.4" />
-                <text x="82" y="72" text-anchor="middle" fill="var(--ink)" font-size="12.5" font-weight="600">噪声轨迹 τ_K</text>
-                <text x="82" y="92" text-anchor="middle" fill="var(--muted)" font-size="10.5">二维数组 [s_t, a_t]</text>
+                <text x="82" y="72" text-anchor="middle" fill="var(--ink)" font-size="12.5" font-weight="600">噪声轨迹 τ^K</text>
+                <text x="82" y="92" text-anchor="middle" fill="var(--muted)" font-size="10.5">二维矩阵 (d_s+d_a)×H</text>
 
                 <line x1="152" y1="78" x2="210" y2="78" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#diff-arrow)" />
 
-                <rect x="218" y="28" width="230" height="100" rx="5" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5" />
-                <text x="333" y="54" text-anchor="middle" fill="var(--ink)" font-size="12.5" font-weight="600">时序 1D U-Net 迭代去噪</text>
-                <text x="333" y="75" text-anchor="middle" fill="var(--muted)" font-size="10.5">局部卷积感受野 → 单步建模相邻动力学</text>
-                <text x="333" y="93" text-anchor="middle" fill="var(--muted)" font-size="10.5">多步反向采样 → 合成全局连贯轨迹</text>
-                <text x="333" y="113" text-anchor="middle" fill="var(--accent)" font-size="10.5">+ 可插拔引导梯度 ∇J(τ) 与起终点约束</text>
+                <rect x="218" y="26" width="234" height="104" rx="5" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5" />
+                <text x="335" y="52" text-anchor="middle" fill="var(--ink)" font-size="12.5" font-weight="600">时序 1D U-Net 反向去噪</text>
+                <text x="335" y="73" text-anchor="middle" fill="var(--muted)" font-size="10.5">μ ← μ_θ(τ^i, i)（局部动力学一致）</text>
+                <text x="335" y="92" text-anchor="middle" fill="var(--accent)" font-size="10.5">τ^{i-1} ~ N(μ + αΣ∇J(μ), Σ^i)</text>
+                <text x="335" y="111" text-anchor="middle" fill="var(--muted)" font-size="10.5">Inpainting: 强制覆写首尾状态 s_0, s_H</text>
 
-                <line x1="452" y1="78" x2="510" y2="78" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#diff-arrow)" />
+                <line x1="456" y1="78" x2="510" y2="78" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#diff-arrow)" />
 
                 <rect x="518" y="42" width="146" height="72" rx="5" fill="var(--bg)" stroke="var(--line)" stroke-width="1.4" />
-                <text x="591" y="72" text-anchor="middle" fill="var(--ink)" font-size="12.5" font-weight="600">规划轨迹 τ_0</text>
-                <text x="591" y="92" text-anchor="middle" fill="var(--muted)" font-size="10.5">动力学可行 + 高累计回报</text>
+                <text x="591" y="72" text-anchor="middle" fill="var(--ink)" font-size="12.5" font-weight="600">规划轨迹 τ^0</text>
+                <text x="591" y="92" text-anchor="middle" fill="var(--muted)" font-size="10.5">执行首步动作 a_0（MPC）</text>
 
-                <text x="340" y="162" text-anchor="middle" fill="var(--muted)" font-size="11">反向去噪步数 i = K → 0：动力学先验（离线训练固定）与任务目标 J(τ)（测试时灵活替换）解耦</text>
+                <text x="340" y="164" text-anchor="middle" fill="var(--muted)" font-size="11">热启动（Warm-Start）：下一时刻复用上一步规划加少量噪声，去噪步数可缩减至 1/10</text>
               </svg>
-              <figcaption>Diffuser 将轨迹表示为二维矩阵，通过迭代去噪与测试时梯度引导完成非贪心轨迹规划。</figcaption>
+              <figcaption>Diffuser 引导扩散规划（Algorithm 1）与热启动执行闭环。</figcaption>
             </figure>
 
-            <p>它的设计里最巧妙的三点：</p>
-            <ol>
-              <li>
-                <strong>二维轨迹矩阵 + 局部 1D 卷积 U-Net</strong>：把一段长度为
-                <span class="math-inline">T</span> 的轨迹拼成二维张量
-                <span class="math-inline">τ = [s<sub>0</sub>, a<sub>0</sub>; s<sub>1</sub>, a<sub>1</sub>; …; s<sub>T</sub>, a<sub>T</sub>]</span>。网络只用时序一维卷积，<strong>单步去噪只关注局部相邻时间步的动力学一致性</strong>，但多步迭代叠加之后，感受野自然覆盖整条轨迹，同时天然支持任意规划长度。
-              </li>
-              <li>
-                <strong>动力学与奖励解耦（Reward-Agnostic Pretraining）</strong>：扩散主干只学习离线数据中的可行轨迹分布
-                <span class="math-inline">p<sub>θ</sub>(τ)</span>，不绑死特定奖励函数；到了测试阶段，只要训练一个独立的回报估计器
-                <span class="math-inline">J<sub>φ</sub>(τ)</span>，在每一步去噪均值上叠加梯度偏移，就能把采样推向高回报或满足多目标约束的区域：
-              </li>
-            </ol>
-            <div class="math-block">
-              p̃(τ<sup>i−1</sup> | τ<sup>i</sup>) ≈ 𝒩(μ<sub>θ</sub>(τ<sup>i</sup>) + α Σ g, Σ), &nbsp;&nbsp; g = ∇<sub>τ</sub> J<sub>φ</sub>(τ)|<sub>τ = μ</sub>
-            </div>
-            <ol start="3">
-              <li>
-                <strong>起终点约束变成“图像补全（Inpainting）”</strong>：把当前观测状态固定在轨迹首端、目标状态固定在轨迹末端，在每一步去噪后强制覆盖两端取值，中间的动作与状态路径就会像图像修复一样自动补齐。
-              </li>
-            </ol>
+            <pre><code>Algorithm 1: Guided Diffusion Planning (Janner et al., ICML 2022)
+Require: Diffuser μ_θ, return guide J_φ, guidance scale α, covariances Σ^i
+while episode not done:
+    Observe current state s; initialize τ^K ~ N(0, I)
+    for i = K, K-1, ..., 1:
+        μ ← μ_θ(τ^i)                                  # 无条件反向去噪均值
+        τ^{i-1} ~ N(μ + α · Σ^i · ∇J_φ(μ), Σ^i)       # 注入任务回报梯度引导
+        τ^{i-1}[s_0] ← s                              # Inpainting 固定当前起点状态
+    Execute first action τ^0[a_0] in environment</code></pre>
 
-            <blockquote>
-              <p>
-                <strong>一个容易混的概念（Denoising vs. Sampling）</strong>：在扩散模型里，<strong>去噪（Denoising）</strong>指的是给定第
-                <span class="math-inline">i</span> 步带噪样本，用网络预测噪声或更干净一步
-                <span class="math-inline">τ<sup>i−1</sup></span> 的单步操作；<strong>采样（Sampling）</strong>则是从纯噪声
-                <span class="math-inline">τ<sup>K</sup></span> 出发，重复执行去噪直到
-                <span class="math-inline">i = 0</span> 得到最终轨迹的完整过程。
-              </p>
-            </blockquote>
-          </section>
+            <h3>3.2 实验设置与定量结果全析</h3>
+            <p>
+              作者围绕三个核心能力设计了三组递进实验：① <strong>无奖励塑形的长程稀疏规划</strong>（Maze2D / Multi2D）、② <strong>测试时组合泛化</strong>（Block Stacking）、③ <strong>异质离线数据的连续运动控制</strong>（D4RL Gym-MuJoCo），并考察了推理加速消融。
+            </p>
 
-          <section id="landscape">
-            <h2>四、相关代表工作与开源索引</h2>
-            <p>围绕扩散模型与强化学习的融合，整理几篇当时重点跟读的代表工作和对应代码：</p>
+            <h4>实验 1：长程稀疏奖励规划与多目标泛化（原论文 Table 1）</h4>
+            <p>
+              Maze2D 仅在到达终点时给出 1 分奖励、沿途全为 0，往往需要数百步才能抵达。<strong>Multi2D</strong> 进一步在每局随机重置终点位置——Diffuser 无需任何重训，直接修改 Inpainting 的终点条件即可规划：
+            </p>
             <div class="note-table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>工作</th>
-                    <th>方向</th>
-                    <th>一句话定位</th>
-                    <th>链接</th>
+                    <th>环境（D4RL 归一化得分 ↑）</th>
+                    <th class="num">MPPI</th>
+                    <th class="num">CQL</th>
+                    <th class="num">IQL</th>
+                    <th class="num">Diffuser</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><strong>Diffuser</strong> (ICML 2022)</td>
-                    <td>Diffusion for RL</td>
-                    <td>轨迹级扩散规划器，结合梯度引导与 Inpainting 实现非贪心离线规划</td>
-                    <td>
-                      <a href="https://arxiv.org/abs/2205.09991">arXiv</a> ·
-                      <a href="https://github.com/jannerm/diffuser">Code</a>
-                    </td>
+                    <td>Maze2D · U-Maze（单目标）</td>
+                    <td class="num">33.2</td>
+                    <td class="num">5.7</td>
+                    <td class="num">47.4</td>
+                    <td class="num best">113.9 ± 3.1</td>
                   </tr>
                   <tr>
-                    <td><strong>Diffusion Policy</strong> (RSS 2023)</td>
-                    <td>Diffusion for RL / Robotics</td>
-                    <td>将机器人视觉运动策略建模为条件去噪扩散过程，显著提升多模态操作表现</td>
-                    <td>
-                      <a href="https://arxiv.org/abs/2303.04137">arXiv</a> ·
-                      <a href="https://github.com/real-stanford/diffusion_policy">Code</a>
-                    </td>
+                    <td>Maze2D · Medium（单目标）</td>
+                    <td class="num">10.2</td>
+                    <td class="num">5.0</td>
+                    <td class="num">34.9</td>
+                    <td class="num best">121.5 ± 2.7</td>
                   </tr>
                   <tr>
-                    <td><strong>DDPO</strong> (ICLR 2024)</td>
-                    <td>RL for Diffusion</td>
-                    <td>把去噪链当作多步 MDP，用策略梯度直接优化文生图模型的不可微奖励</td>
-                    <td>
-                      <a href="https://arxiv.org/abs/2305.13301">arXiv</a> ·
-                      <a href="https://github.com/kvablack/ddpo-pytorch">Code</a>
-                    </td>
+                    <td>Maze2D · Large（单目标）</td>
+                    <td class="num">5.1</td>
+                    <td class="num">12.5</td>
+                    <td class="num">58.6</td>
+                    <td class="num best">123.0 ± 6.4</td>
                   </tr>
                   <tr>
-                    <td><strong>QSM</strong> (2024)</td>
-                    <td>Diffusion for RL</td>
-                    <td>Q-Score Matching：让扩散策略的得分函数直接对齐动作价值梯度 ∇<sub>a</sub>Q(s, a)</td>
-                    <td>
-                      <a href="https://arxiv.org/abs/2312.11752">arXiv</a> ·
-                      <a href="https://github.com/Alescontrela/score_matching_rl">Code</a>
-                    </td>
+                    <td><strong>Single-task Average</strong></td>
+                    <td class="num">16.2</td>
+                    <td class="num">7.7</td>
+                    <td class="num">47.0</td>
+                    <td class="num best">119.5</td>
                   </tr>
                   <tr>
-                    <td><strong>GenPO</strong> (2025)</td>
-                    <td>Diffusion for RL</td>
-                    <td>探索面向在线 on-policy 强化学习的生成式扩散策略优化</td>
-                    <td><a href="https://arxiv.org/abs/2505.18763">arXiv</a></td>
+                    <td>Multi2D · U-Maze（每局随机目标）</td>
+                    <td class="num">41.2</td>
+                    <td class="num">—</td>
+                    <td class="num">24.8</td>
+                    <td class="num best">128.9 ± 1.8</td>
+                  </tr>
+                  <tr>
+                    <td>Multi2D · Medium（每局随机目标）</td>
+                    <td class="num">15.4</td>
+                    <td class="num">—</td>
+                    <td class="num">12.1</td>
+                    <td class="num best">127.2 ± 3.4</td>
+                  </tr>
+                  <tr>
+                    <td>Multi2D · Large（每局随机目标）</td>
+                    <td class="num">8.0</td>
+                    <td class="num">—</td>
+                    <td class="num">13.9</td>
+                    <td class="num best">132.1 ± 5.8</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Multi-task Average</strong></td>
+                    <td class="num">21.5</td>
+                    <td class="num">—</td>
+                    <td class="num">16.9</td>
+                    <td class="num best">129.4</td>
                   </tr>
                 </tbody>
               </table>
             </div>
+            <p>
+              <strong>结果分析</strong>：单目标下经典时序差分算法 CQL（7.7）与 IQL（47.0）因长程信用分配失效而表现糟糕，Diffuser 全部突破 100（超越参考专家策略，均值 <strong>119.5</strong>）；切换到每局换目标的 Multi2D 后，IQL 从 47.0 崩跌至 <strong>16.9</strong>，而 Diffuser 零重训反而拿到 <strong>129.4</strong>。
+            </p>
+
+            <h4>实验 2：测试时约束组合泛化（Block Stacking，原论文 Table 2）</h4>
+            <p>
+              在离线机械臂积木堆叠数据上，测试三种未在训练阶段显式绑定的目标组合（无条件堆叠 / 指定顺序条件堆叠 / 重排，100 为完美执行）：
+            </p>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>任务</th>
+                    <th class="num">BCQ</th>
+                    <th class="num">CQL</th>
+                    <th class="num">Diffuser</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Unconditional Stacking</td>
+                    <td class="num">0.0</td>
+                    <td class="num">24.4</td>
+                    <td class="num best">58.7 ± 2.5</td>
+                  </tr>
+                  <tr>
+                    <td>Conditional Stacking</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num best">45.6 ± 3.1</td>
+                  </tr>
+                  <tr>
+                    <td>Rearrangement</td>
+                    <td class="num">0.0</td>
+                    <td class="num">0.0</td>
+                    <td class="num best">58.9 ± 3.4</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Average</strong></td>
+                    <td class="num">0.0</td>
+                    <td class="num">8.1</td>
+                    <td class="num best">54.4</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h4>实验 3：标准连续运动控制（D4RL MuJoCo，原论文 Table 3）与速度消融</h4>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>数据集 · 环境</th>
+                    <th class="num">BC</th>
+                    <th class="num">CQL</th>
+                    <th class="num">IQL</th>
+                    <th class="num">DT</th>
+                    <th class="num">TT</th>
+                    <th class="num">Diffuser</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Medium-Expert · HalfCheetah</td>
+                    <td class="num">55.2</td>
+                    <td class="num">91.6</td>
+                    <td class="num">86.7</td>
+                    <td class="num">86.8</td>
+                    <td class="num best">95.0</td>
+                    <td class="num">88.9 ± 0.3</td>
+                  </tr>
+                  <tr>
+                    <td>Medium-Expert · Hopper</td>
+                    <td class="num">52.5</td>
+                    <td class="num">105.4</td>
+                    <td class="num">91.5</td>
+                    <td class="num">107.6</td>
+                    <td class="num best">110.0</td>
+                    <td class="num">103.3 ± 1.3</td>
+                  </tr>
+                  <tr>
+                    <td>Medium-Expert · Walker2d</td>
+                    <td class="num">107.5</td>
+                    <td class="num">108.8</td>
+                    <td class="num best">109.6</td>
+                    <td class="num">108.1</td>
+                    <td class="num">101.9</td>
+                    <td class="num">106.9 ± 0.2</td>
+                  </tr>
+                  <tr>
+                    <td>Medium · HalfCheetah</td>
+                    <td class="num">42.6</td>
+                    <td class="num">44.0</td>
+                    <td class="num best">47.4</td>
+                    <td class="num">42.6</td>
+                    <td class="num">46.9</td>
+                    <td class="num">42.8 ± 0.3</td>
+                  </tr>
+                  <tr>
+                    <td>Medium · Hopper</td>
+                    <td class="num">52.9</td>
+                    <td class="num">58.5</td>
+                    <td class="num">66.3</td>
+                    <td class="num">67.6</td>
+                    <td class="num">61.1</td>
+                    <td class="num best">74.3 ± 1.4</td>
+                  </tr>
+                  <tr>
+                    <td>Medium · Walker2d</td>
+                    <td class="num">75.3</td>
+                    <td class="num">72.5</td>
+                    <td class="num">78.3</td>
+                    <td class="num">74.0</td>
+                    <td class="num">79.0</td>
+                    <td class="num best">79.6 ± 0.6</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ul>
+              <li>
+                <strong>坦诚的边界</strong>：在短视界、强高频动力学的 MuJoCo 运动控制上，Diffuser 整体与顶级离线 RL（CQL / IQL / TT）持平甚至略优（如 Walker2d-Medium 79.6、Hopper-Medium 74.3），但不如 Maze2D 那样断崖式碾压——说明扩散规划的真正杀手锏在于<strong>长程拼接（stitching）与测试时目标组合</strong>。
+              </li>
+              <li>
+                <strong>热启动消融（Warm-Starting）</strong>：迭代去噪慢是扩散规划的天然软肋。论文在 Walker2d Medium-Expert 上验证，只要拿上一时刻的规划轨迹施加少量前向噪声作为本步初值，<strong>即使把去噪步数压到原来的 1/10，性能也几乎不掉</strong>，让闭环控制速度进入实用区间。
+              </li>
+            </ul>
+          </section>
+
+          <section id="extensions">
+            <h2>四、四篇代表延伸工作：从视觉操作到在线策略优化</h2>
+
+            <h3>4.1 Diffusion Policy（Chi et al., RSS 2023，<a href="https://arxiv.org/abs/2303.04137">arXiv:2303.04137</a>）</h3>
+            <ul>
+              <li><strong>核心设计</strong>：不再联合生成高维状态序列，而是以视觉/本体观测历史 $O_t$（长度 $T_o$）为条件，直接对<strong>未来动作块（Action Chunk，长度 $T_p$）</strong>做条件去噪生成，并按滚动时域控制（Receding-Horizon Control）只执行前 $T_a$ 步动作再重新观测规划；系统对比了 1D CNN（FiLM 条件注入）与 Time-series Diffusion Transformer 两种去噪主干，并引入 DDIM 加速到实时控制频率。</li>
+              <li><strong>实验结果</strong>：横跨 <strong>4 个机器人基准套件、12 项操作任务</strong>（含强多模态接触任务 Push-T 与 Robomimic），相比 LSTM-GMM、BET、IBC 等此前 SOTA <strong>平均性能提升 46.9%</strong>；代码开源于 <a href="https://github.com/real-stanford/diffusion_policy">real-stanford/diffusion_policy</a>。</li>
+            </ul>
+
+            <h3>4.2 DDPO（Black et al., ICLR 2024，<a href="https://arxiv.org/abs/2305.13301">arXiv:2305.13301</a>）</h3>
+            <ul>
+              <li><strong>核心理论（RL for Diffusion）</strong>：把 $K$ 步去噪链精确写成有限步 MDP——状态 $s_t = (c, K-t, x_{K-t})$，动作 $a_t = x_{K-t-1}$，策略 $\pi_\theta(a_t \mid s_t) = p_\theta(x_{K-t-1} \mid x_{K-t}, c)$，仅在最终图像 $x_0$ 生成时获得稀疏奖励 $r(x_0, c)$。从而直接对去噪分布求精确策略梯度（及 PPO 式重要性采样裁剪版本 $\text{DDPO}_{\text{IS}}$）：</li>
+            </ul>
+            $$\nabla_\theta \mathcal{J}_{\text{DDRL}}(\theta) = \mathbb{E}\!\left[\sum_{t=0}^{K-1} \nabla_\theta \log p_\theta(x_{t-1} \mid x_t, c)\; r(x_0, c)\right]$$
+            <ul>
+              <li><strong>实验结果</strong>：在 Stable Diffusion v1.4 上直接优化难以用提示词描述的不可微目标——JPEG 压缩体积（压小/拉大）、LAION 美学打分以及基于 LLaVA VLM 问答的复杂图文一致性，优化效率与稳定性均大幅超过传统的奖励加权回归（RWR）；开源代码见 <a href="https://github.com/kvablack/ddpo-pytorch">kvablack/ddpo-pytorch</a>。</li>
+            </ul>
+
+            <h3>4.3 QSM：Q-Score Matching（Psenka et al., ICML 2024，<a href="https://arxiv.org/abs/2312.11752">arXiv:2312.11752</a>）</h3>
+            <ul>
+              <li><strong>痛点与理论</strong>：如果在 Actor-Critic 中直接通过整条多步去噪链反向传播 $Q(s, a)$ 的梯度，会产生高方差与显存爆炸。QSM 注意到最优玻尔兹曼策略 $\pi^*(a \mid s) \propto \exp(\alpha Q(s, a))$ 的得分函数满足 $\nabla_a \log \pi^*(a \mid s) = \alpha \nabla_a Q(s, a)$，因此直接让扩散模型的得分网络 $\psi_\theta(a, s)$ 去匹配动作价值梯度：</li>
+            </ul>
+            $$\mathcal{L}_{\text{QSM}}(\theta) = \mathbb{E}_{(s, a) \sim \mathcal{D}}\!\left[\big\|\psi_\theta(a, s) - \alpha \nabla_a Q_\phi(s, a)\big\|^2\right]$$
+            <ul>
+              <li><strong>实验结论</strong>：更新策略时只需对单步去噪网络求导，完全避开跨去噪链的 BPTT，同时保留了隐式多峰探索能力（开源代码见 <a href="https://github.com/Alescontrela/score_matching_rl">score_matching_rl</a>）。</li>
+            </ul>
+
+            <h3>4.4 GenPO（Ding et al., NeurIPS 2025，<a href="https://arxiv.org/abs/2505.18763">arXiv:2505.18763</a>）</h3>
+            <ul>
+              <li><strong>痛点与机制</strong>：扩散/流策略长期难以直接接入 <strong>on-policy PPO</strong>，核心障碍在于多步采样后的动作边际对数概率 $\log \pi_\theta(a \mid s)$ 难以精确计算且不可逆。GenPO 设计了一种<strong>双虚拟动作交替更新（doubled dummy action）</strong>机制，实现了精确的扩散逆变换（exact diffusion inversion），把扩散策略干净地嵌入标准 PPO 裁剪目标。</li>
+              <li><strong>实验结果</strong>：在 <strong>IsaacLab 8 项大规模 GPU 并行仿真基准</strong>（Ant、Humanoid、Anymal-D、Unitree H1/Go2、Shadow Hand 灵巧手、Quadcopter、Franka 机械臂）上取得了优于高斯策略及其他扩散 RL 基线的在线训练效果。</li>
+            </ul>
+          </section>
+
+          <section id="takeaways">
+            <h2>五、方法选型与核心结论</h2>
+            <ol>
+              <li><strong>长程稀疏奖励 / 测试时动态换目标</strong> → 选 <strong>Diffuser</strong> 一类的轨迹级扩散规划，用 Inpainting 和引导梯度绕开 TD 信用分配瓶颈。</li>
+              <li><strong>高维视觉输入 / 接触丰富的多模态示范模仿</strong> → 选 <strong>Diffusion Policy</strong>（条件动作块 + 滚动时域控制），兼顾实时性与多峰表达。</li>
+              <li><strong>需要从零在线交互并结合 Critic 探索</strong> → 离线/Off-policy 优先看 <strong>QSM</strong>（省去跨步 BPTT），大规模并行 On-policy 优先看 <strong>GenPO</strong>。</li>
+              <li><strong>面向图像/视频生成模型的黑盒偏好对齐</strong> → 走 <strong>RL for Diffusion（DDPO）</strong>，把去噪链本身当作多步 MDP 做策略梯度。</li>
+            </ol>
           </section>
 
           <section class="note-refs" id="references">
-            <h2>延伸阅读</h2>
+            <h2>参考资料</h2>
             <ol>
               <li>
-                Lilian Weng (2021)：<a
-                  href="https://lilianweng.github.io/posts/2021-07-11-diffusion-models/"
-                  ><em>What are Diffusion Models?</em> ↗</a
-                >
+                Janner et al., <em>Planning with Diffusion for Flexible Behavior Synthesis</em> (ICML 2022,
+                <a href="https://arxiv.org/abs/2205.09991">arXiv:2205.09991</a>,
+                <a href="https://github.com/jannerm/diffuser">Code</a>)
               </li>
               <li>
-                Diffuser 项目主页：<a href="https://diffusion-planning.github.io/"
-                  >diffusion-planning.github.io ↗</a
-                >
+                Chi et al., <em>Diffusion Policy: Visuomotor Policy Learning via Action Diffusion</em> (RSS 2023,
+                <a href="https://arxiv.org/abs/2303.04137">arXiv:2303.04137</a>,
+                <a href="https://github.com/real-stanford/diffusion_policy">Code</a>)
+              </li>
+              <li>
+                Black et al., <em>Training Diffusion Models with Reinforcement Learning</em> (DDPO, ICLR 2024,
+                <a href="https://arxiv.org/abs/2305.13301">arXiv:2305.13301</a>,
+                <a href="https://github.com/kvablack/ddpo-pytorch">Code</a>)
+              </li>
+              <li>
+                Psenka et al., <em>Learning a Diffusion Model Policy from Rewards via Q-Score Matching</em> (ICML 2024,
+                <a href="https://arxiv.org/abs/2312.11752">arXiv:2312.11752</a>,
+                <a href="https://github.com/Alescontrela/score_matching_rl">Code</a>)
+              </li>
+              <li>
+                Ding et al., <em>GenPO: Generative Diffusion Models Meet On-Policy Reinforcement Learning</em> (NeurIPS 2025,
+                <a href="https://arxiv.org/abs/2505.18763">arXiv:2505.18763</a>)
+              </li>
+              <li>
+                Lilian Weng (2021), <a href="https://lilianweng.github.io/posts/2021-07-11-diffusion-models/"><em>What are Diffusion Models?</em> ↗</a>
               </li>
             </ol>
           </section>

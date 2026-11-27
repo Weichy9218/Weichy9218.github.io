@@ -61,10 +61,11 @@ for path in PAGES:
     if '[Research description]' in source or '[Project story' in source:
         errors.append('Draft placeholder found')
 
-for css in (ROOT / 'assets/profile').glob('*.css'):
-    for reference in re.findall(r'url\([\'"]?([^\)\'\"]+)', css.read_text()):
-        if not (css.parent / reference).is_file():
-            errors.append(f'Missing CSS asset: {reference}')
+for css_dir in ('assets/profile', 'assets/katex'):
+    for css in (ROOT / css_dir).glob('*.css'):
+        for reference in re.findall(r'url\([\'"]?([^\)\'\"]+)', css.read_text()):
+            if not (css.parent / reference).is_file():
+                errors.append(f'Missing CSS asset: {reference}')
 
 if errors:
     raise SystemExit('\n'.join(errors))

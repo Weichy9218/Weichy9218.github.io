@@ -382,7 +382,7 @@ h3 {
   padding: 42px 0 56px;
 }
 .note-article {
-  max-width: 720px;
+  max-width: 790px;
   font-family: var(--sans), "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
   line-height: 1.85;
 }
@@ -530,6 +530,97 @@ h3 {
   font-size: 12.5px;
   color: var(--muted);
   text-align: center;
+}
+.note-img-figure {
+  margin: 20px 0;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  text-align: center;
+}
+.note-img-figure img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 3px;
+  background: #ffffff;
+  padding: 4px;
+}
+.note-img-figure.img-narrow img {
+  max-width: 560px;
+}
+.note-img-figure.img-compact img {
+  max-width: 420px;
+}
+.note-img-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: center;
+}
+.note-img-grid img {
+  width: 100%;
+}
+.note-img-figure figcaption {
+  margin-top: 9px;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.note-article h4 {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 18px 0 8px;
+  color: var(--ink);
+}
+.note-article mark {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--ink);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.note-callout {
+  margin: 18px 0;
+  padding: 14px 18px;
+  background: var(--panel);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  font-size: 14.5px;
+}
+.note-callout-title {
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+.note-callout p:last-child,
+.note-callout ul:last-child,
+.note-callout ol:last-child {
+  margin-bottom: 0;
+}
+.katex-display {
+  margin: 16px 0 !important;
+  padding: 10px 14px;
+  background: var(--panel);
+  border-radius: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.note-article td.num,
+.note-article th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.note-article td.best {
+  color: var(--ink);
+  font-weight: 650;
+}
+@media (max-width: 640px) {
+  .note-img-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .note-aside {
   font-size: 14px;

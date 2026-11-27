@@ -4,23 +4,27 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>GPT-2 论文精读：无监督多任务学习的起点 | Chuyang Wei</title>
+    <title>GPT-2 论文精读：理论假设、工程细节与零样本实验全析 | Chuyang Wei</title>
     <meta
       name="description"
-      content="精读 Radford et al. (2019) GPT-2 论文：把多任务统一为条件语言建模、WebText 数据筛选、Byte-level BPE、Pre-LN 与残差缩放初始化，以及零样本迁移的历史意义。"
+      content="系统精读 Radford et al. (2019) GPT-2 论文：p(output|input,task) 无监督多任务理论假设、WebText 过滤、Byte-level BPE 与 Pre-LN 细节，完整还原 Table 3/4/6 定量实验、8-gram 泄漏分析与历史启示。"
     />
     <link rel="canonical" href="https://weichy9218.github.io/notes/gpt-2-reading/" />
     <meta property="og:type" content="article" />
-    <meta property="og:title" content="GPT-2 论文精读：无监督多任务学习的起点" />
+    <meta property="og:title" content="GPT-2 论文精读：理论假设、工程细节与零样本实验全析" />
     <meta
       property="og:description"
-      content="梳理 GPT-2 的核心假设、WebText 数据构建、Byte-level BPE 与 Pre-LN 架构细节，以及零样本结果的启示。"
+      content="从理论假设、WebText、Byte-BPE/Pre-LN 到 Table 3/4/6 定量结果与记忆/泛化剖析，完整精读 GPT-2 原论文。"
     />
     <meta property="og:url" content="https://weichy9218.github.io/notes/gpt-2-reading/" />
     <link rel="icon" href="../../assets/profile/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="../../assets/profile/fonts.css" />
     <link rel="stylesheet" href="../../assets/profile/site.css" />
+    <link rel="stylesheet" href="../../assets/katex/katex.min.css" />
     <script src="../../assets/profile/site.js" defer></script>
+    <script src="../../assets/katex/katex.min.js" defer></script>
+    <script src="../../assets/katex/auto-render.min.js" defer></script>
+    <script src="../../assets/katex/init.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -46,140 +50,358 @@
       <main class="note-main" id="main">
         <article class="note-article">
           <header class="note-header">
-            <p class="eyebrow">NOTE · 2025-02-19</p>
-            <h1>GPT-2 论文精读：无监督多任务学习的起点</h1>
+            <p class="eyebrow">PAPER READING · 2025-02-19</p>
+            <h1>GPT-2 论文精读：理论假设、工程细节与零样本实验全析</h1>
             <p class="note-meta">
-              Chuyang Wei · Paper Reading · Radford et al. (2019)
+              Chuyang Wei · Radford et al., OpenAI (2019), <em>Language Models are Unsupervised Multitask Learners</em>
             </p>
           </header>
 
           <p>
-            重读 OpenAI 2019 年的 GPT-2 论文（<em>Language Models are Unsupervised Multitask Learners</em>），最有意思的地方并不是模型架构有多复杂——事实上它和
-            GPT-1 几乎同源——而是它正式提出了一个后来改写整个 NLP 范式的判断：<strong>只要数据够干净、规模够大，纯无监督的下一个词预测本身就能涌现出零样本多任务能力。</strong>
+            在 BERT（2018）和 GPT-1（2018）刚刚把“无监督预训练 + 单任务微调”确立为 NLP 黄金范式的几个月后，OpenAI 在 2019 年初发表了
+            <strong>GPT-2</strong>。这篇论文之所以是整个现代大模型路线的转折点，不是因为提出了全新网络结构，而是用一整套严谨的零样本实验和泄漏排查证明了一件事：<strong>当数据多样性与模型容量跨过某个阈值，单纯优化下一个词似然，就能让语言模型在不做任何梯度更新的情况下涌现出多任务能力。</strong>
           </p>
 
-          <section id="core-idea">
-            <h2>一、核心思想：把一切任务写成 p(output | input, task)</h2>
+          <section id="theory">
+            <h2>一、理论动机：从 $p(\text{output} \mid \text{input})$ 到 $p(\text{output} \mid \text{input}, \text{task})$</h2>
             <p>
-              在 BERT 和 GPT-1 主导的时期，主流做法是“无监督预训练 + 针对单个下游任务的监督微调”。单任务模型本质上在估计
-              <span class="math-inline">p(output | input)</span>，换一个任务就得重换任务头、重标数据集。
+              标准语言建模将一段符号序列 $(s_1, s_2, \dots, s_n)$ 的联合概率分解为条件概率连乘：
             </p>
+            $$p(x) = \prod_{i=1}^{n} p(s_i \mid s_1, \dots, s_{i-1})$$
             <p>
-              GPT-2 指出，通用系统应当建模的是带有任务条件的分布：
+              传统的单任务监督学习只学习 $p(\text{output} \mid \text{input})$，需要为每个任务单独设计输出头与标注集，结果往往在域外分布上极度脆弱（narrow experts）。而多任务系统应当建模的是以任务为条件的分布：
             </p>
-            <div class="math-block">
-              p(output | input, task)
+            $$p(\text{output} \mid \text{input}, \text{task})$$
+            <p>
+              在 MQAN（McCann et al., 2018）等早期工作里，人们已经尝试把问答、翻译、摘要统一写成自然语言输入序列，但仍依赖大量人工有监督多任务语料。GPT-2 提出了一个更激进的理论观察：
+            </p>
+            <div class="note-callout">
+              <p class="note-callout-title">无监督多任务学习的核心推论</p>
+              <p>
+                由于自然语言本身能把“任务描述、输入与输出”全都装进同一串文本里（例如一段网页文本天然包含“<code>translate to french, english text, french text</code>”或“<code>Q: ... A: ...</code>”），那么<strong>任意有监督任务的目标，本质上只是大规模无监督语言建模目标的一个子集</strong>。因此，无监督语言模型的全局最优解，与所有包含在语料分布中的有监督任务的全局最优解是一致的——问题不再是“目标函数对不对”，而是<strong>模型容量和训练步数够不够逼近这个最优解</strong>。
+              </p>
             </div>
-            <p>
-              而语言本身就已经提供了最灵活的任务描述方式——比如“<code>(translate to french, english text, french text)</code>”或者“<code>(answer the question, document, question, answer)</code>”。在足够庞大、多样的互联网语料里，人类早已在自然行文中写下了大量类似的任务示范。只要语言模型容量足够，它为了把下一个词预测得更准，就<strong>不得不</strong>顺带学会这些隐含任务，从而在测试时不更新任何参数就能做零样本（zero-shot）推理。
-            </p>
           </section>
 
-          <section id="webtext">
-            <h2>二、数据工程：WebText 的启发式质量过滤</h2>
+          <section id="data-and-arch">
+            <h2>二、数据构建与模型工程细节</h2>
+
+            <h3>2.1 WebText：用社区信号替代昂贵人工标注</h3>
             <p>
-              GPT-2 没有直接把粗糙的 Common Crawl 全量灌进训练，而是用了一个非常聪明的人工质量代理来构建
-              <strong>WebText</strong>：
+              为了获得既多样又干净的语料，作者没有直接拿噪音极大的 Common Crawl，而是抓取了 Reddit 上所有<strong>至少获得 3 个 karma（赞同票）的外部链接页面</strong>作为人工质量代理（heuristic quality filter）：
             </p>
             <ul>
-              <li>
-                <strong>用社区投票充当人工质检</strong>：只抓取 Reddit 上获得至少
-                <strong>3 个 karma</strong> 的外部链接页面，相当于借用人类读者的筛选来剔除大量垃圾页和机器生成噪音。
-              </li>
-              <li>
-                <strong>规模与防泄漏</strong>：清洗去重后得到约 <strong>800 万篇文档、40GB 文本</strong>；论文还特意移除了所有
-                Wikipedia 页面，避免与常见下游评测集高度重叠而虚高指标。
-              </li>
+              <li>原始外链约 4,500 万条，经 Dragnet 与 Newspaper 正文抽取及去重后，得到 <strong>800 万篇文档、约 40GB 文本</strong>；</li>
+              <li><strong>主动剔除全部 Wikipedia 页面</strong>，因为大量 NLP 评测集直接源自维基百科，剔除它能避免评测时数据重叠带来的虚高。</li>
             </ul>
-            <p>
-              回头看，WebText 其实是后来整个“数据质量优先于裸数据量”路线的早期样本。
-            </p>
-          </section>
 
-          <section id="architecture">
-            <h2>三、词表与模型结构里的工程细节</h2>
-            <h3>1. Byte-level BPE：彻底消灭 OOV</h3>
+            <h3>2.2 Byte-level BPE：零 OOV 与字符类别隔离</h3>
             <p>
-              传统词级或 Unicode 字符级 BPE 要么遇到生僻词就变成 <code>&lt;UNK&gt;</code>，要么基础词表过大（完整
-              Unicode 超过 13 万字符）。GPT-2 直接在 <strong>UTF-8 字节层（基础词表仅 256）</strong>上跑
-              BPE，把最终词表定在 <strong>50,257</strong>：既保证任意字符串都能无损编码、零 OOV，又额外加了一条规则——<strong>禁止跨字符类别合并</strong>（比如不把
-              <code>dog.</code>、<code>dog!</code>、<code>dog?</code> 合并成不同词元），避免标点浪费词表槽位，只对空格保留例外以维持压缩效率。
+              如果直接在 Unicode 码点上做 BPE，光基础字符集就超过 13 万，词表空间被严重挤占；而纯字节级语言模型在 1BW 等大基准上仍明显落后于词级模型。GPT-2 折中提出了<strong>字节级 BPE（Byte-level BPE）</strong>：
             </p>
-
-            <h3>2. 从 GPT-1 到 GPT-2 的架构微调</h3>
             <ul>
-              <li>
-                <strong>Pre-LN 残差连接</strong>：把 LayerNorm 移到每个子模块（自注意力、FFN）的输入端而非输出端，并在最后一个自注意力块后再补一层
-                LayerNorm——这个小改动后来几乎成了大语言模型的标配，训练深层网络稳定得多。
-              </li>
-              <li>
-                <strong>残差初始化缩放</strong>：在初始化时把残差层权重乘以
-                <span class="math-inline">1 / √N</span>（<span class="math-inline">N</span>
-                为残差层总数），控制残差流随深度累加时的方差增长。
-              </li>
-              <li>
-                <strong>上下文与批大小</strong>：上下文窗口从 512 扩到 <strong>1024</strong>，词表扩到 50,257，batch size
-                增至 512。
-              </li>
+              <li>基础词表固定为 <strong>256 个 UTF-8 字节</strong>，保证模型能给<strong>任意 Unicode 字符串</strong>分配合法概率，彻底消灭 <code>&lt;UNK&gt;</code>，也因此能跨任意分词/预处理规范评测任意数据集；</li>
+              <li><strong>关键工程修补</strong>：朴素字节 BPE 会因为标点高频共现把同一个词拆出 <code>dog.</code>、<code>dog!</code>、<code>dog?</code> 等多个重复槽位。作者强制<strong>禁止 BPE 跨字符类别合并</strong>（仅对空格保留例外以维持压缩率），最终定在 <strong>50,257</strong> 词表（256 基础字节 + 50,000 次合并 + 1 个 <code>&lt;|endoftext|&gt;</code>）。</li>
             </ul>
+
+            <h3>2.3 架构微调与四档缩放配置</h3>
+            <p>主干沿用 GPT-1 的 Decoder-only Transformer，但做了三处后来影响深远的稳定性改动：</p>
+            <ol>
+              <li><strong>Pre-LN 结构</strong>：将 LayerNorm 移到每个子块（Self-Attention / FFN）的输入侧，并在最后一个自注意力块后额外加一层 LayerNorm；</li>
+              <li><strong>残差路径初始化缩放</strong>：初始化时将残差层权重乘以 $1 / \sqrt{N}$（$N$ 为残差层总数，48 层模型即 $N=96$），避免残差流方差随深度线性发散；</li>
+              <li><strong>扩展容量</strong>：上下文长度从 512 扩到 <strong>1024</strong>，batch size 增至 <strong>512</strong>。</li>
+            </ol>
 
             <div class="note-table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>规格</th>
-                    <th>参数量</th>
-                    <th>层数 (Layers)</th>
-                    <th>隐层维度 (d<sub>model</sub>)</th>
+                    <th>型号</th>
+                    <th class="num">参数量</th>
+                    <th class="num">层数 $n_{\text{layer}}$</th>
+                    <th class="num">隐维 $d_{\text{model}}$</th>
+                    <th>定位</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><strong>Small (GPT-1 同级)</strong></td>
-                    <td>117M</td>
-                    <td>12</td>
-                    <td>768</td>
+                    <td><strong>GPT-2 Small</strong></td>
+                    <td class="num">117M</td>
+                    <td class="num">12</td>
+                    <td class="num">768</td>
+                    <td>与 GPT-1 同等规模，用作缩放基线</td>
                   </tr>
                   <tr>
-                    <td><strong>Medium</strong></td>
-                    <td>345M</td>
-                    <td>24</td>
-                    <td>1024</td>
+                    <td><strong>GPT-2 Medium</strong></td>
+                    <td class="num">345M</td>
+                    <td class="num">24</td>
+                    <td class="num">1024</td>
+                    <td>与 BERT-Large 同量级</td>
                   </tr>
                   <tr>
-                    <td><strong>Large</strong></td>
-                    <td>762M</td>
-                    <td>36</td>
-                    <td>1280</td>
+                    <td><strong>GPT-2 Large</strong></td>
+                    <td class="num">762M</td>
+                    <td class="num">36</td>
+                    <td class="num">1280</td>
+                    <td>过渡缩放点</td>
                   </tr>
                   <tr>
-                    <td><strong>XL (GPT-2)</strong></td>
-                    <td>1.5B</td>
-                    <td>48</td>
-                    <td>1600</td>
+                    <td><strong>GPT-2 XL</strong></td>
+                    <td class="num">1542M</td>
+                    <td class="num">48</td>
+                    <td class="num">1600</td>
+                    <td>论文主报告完整版（1.5B）</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </section>
 
-          <section id="results">
-            <h2>四、零样本结果与回看意义</h2>
+          <section id="experiments">
+            <h2>三、实验设计与核心定量结果</h2>
+            <p>
+              所有下游评测均在<strong>严格 Zero-Shot（零微调、零任务梯度更新）</strong>条件下完成。评测语言建模时，作者使用可逆反分词器（invertible de-tokenizer）消除旧基准人为留下的空格/标点伪影（仅此一项就带来 2.5–5 PPL 收益），并按原基准单位严格换算概率。
+            </p>
+
+            <h3>3.1 语言建模与长程依赖（原论文 Table 3）</h3>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>模型</th>
+                    <th class="num">LAMBADA<br />(PPL ↓)</th>
+                    <th class="num">LAMBADA<br />(ACC ↑)</th>
+                    <th class="num">CBT-CN<br />(ACC ↑)</th>
+                    <th class="num">CBT-NE<br />(ACC ↑)</th>
+                    <th class="num">WikiText2<br />(PPL ↓)</th>
+                    <th class="num">PTB<br />(PPL ↓)</th>
+                    <th class="num">enwik8<br />(BPB ↓)</th>
+                    <th class="num">text8<br />(BPC ↓)</th>
+                    <th class="num">WT-103<br />(PPL ↓)</th>
+                    <th class="num">1BW<br />(PPL ↓)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Prior SOTA</strong></td>
+                    <td class="num">99.8</td>
+                    <td class="num">59.23</td>
+                    <td class="num">85.7</td>
+                    <td class="num">82.3</td>
+                    <td class="num">39.14</td>
+                    <td class="num">46.54</td>
+                    <td class="num">0.99</td>
+                    <td class="num">1.08</td>
+                    <td class="num">18.3</td>
+                    <td class="num best">21.8</td>
+                  </tr>
+                  <tr>
+                    <td>117M</td>
+                    <td class="num">35.13</td>
+                    <td class="num">45.99</td>
+                    <td class="num">87.65</td>
+                    <td class="num">83.4</td>
+                    <td class="num">29.41</td>
+                    <td class="num">65.85</td>
+                    <td class="num">1.16</td>
+                    <td class="num">1.17</td>
+                    <td class="num">37.50</td>
+                    <td class="num">75.20</td>
+                  </tr>
+                  <tr>
+                    <td>345M</td>
+                    <td class="num">15.60</td>
+                    <td class="num">55.48</td>
+                    <td class="num">92.35</td>
+                    <td class="num">87.1</td>
+                    <td class="num">22.76</td>
+                    <td class="num">47.33</td>
+                    <td class="num">1.01</td>
+                    <td class="num">1.06</td>
+                    <td class="num">26.37</td>
+                    <td class="num">55.72</td>
+                  </tr>
+                  <tr>
+                    <td>762M</td>
+                    <td class="num">10.87</td>
+                    <td class="num">60.12</td>
+                    <td class="num best">93.45</td>
+                    <td class="num">88.0</td>
+                    <td class="num">19.93</td>
+                    <td class="num">40.31</td>
+                    <td class="num">0.97</td>
+                    <td class="num">1.02</td>
+                    <td class="num">22.05</td>
+                    <td class="num">44.58</td>
+                  </tr>
+                  <tr>
+                    <td><strong>1542M (XL)</strong></td>
+                    <td class="num best">8.63</td>
+                    <td class="num best">63.24</td>
+                    <td class="num">93.30</td>
+                    <td class="num best">89.05</td>
+                    <td class="num best">18.34</td>
+                    <td class="num best">35.76</td>
+                    <td class="num best">0.93</td>
+                    <td class="num best">0.98</td>
+                    <td class="num best">17.48</td>
+                    <td class="num">42.16</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
             <ul>
               <li>
-                <strong>语言建模全面领先</strong>：在 8 个语言建模评测集里，1.5B 模型在零样本条件下直接刷新了其中
-                <strong>7 个</strong>的 SOTA，而且在 LAMBADA（长程上下文猜尾词）上把困惑度从 99.8 压到 8.6。
+                <strong>7/8 语言建模基准零样本刷新 SOTA</strong>：尤其在小数据集（PTB、WikiText-2，训练集仅 100–200 万词）与长程依赖任务（LAMBADA 困惑度从 99.8 骤降至 <strong>8.63</strong>，裸准确率 52.66%，加停用词过滤升至 <strong>63.24%</strong>）上提升极其悬殊。
               </li>
               <li>
-                <strong>开放任务初显雏形但仍不成熟</strong>：在 CoQA 阅读理解上零样本达到 55 F1（接近部分早年监督基线）；在
-                CNN/Daily Mail 摘要任务里，只在原文末尾拼上 <code>TL;DR:</code> 就能诱发摘要行为；但在翻译和摘要的绝对质量上，仍然明显弱于专门微调的有监督模型。
-              </li>
-              <li>
-                <strong>最关键的信号——模型仍在欠拟合（Underfitting）</strong>：即便扩展到 1.5B，GPT-2 在
-                WebText 上的训练损失仍未收敛见顶，4 个尺度的对数线性曲线几乎没有放缓迹象——这直接为一年后的
-                <strong>Scaling Laws</strong> 和 <strong>GPT-3（175B + In-Context Learning）</strong>埋下了伏笔。
+                <strong>唯一显著落后的 1BW（42.16 vs. 21.8）为何掉队？</strong>因为 1BW 是最大且预处理破坏最严重的基准——它把句子顺序全部打乱（sentence-level shuffling），直接剥夺了 GPT-2 跨句长程上下文的最大优势。
               </li>
             </ul>
+
+            <h3>3.2 常识推理、阅读理解、摘要与翻译</h3>
+            <ul>
+              <li>
+                <strong>Winograd Schema Challenge（273 题常识消歧）</strong>：零样本达到 <strong>70.70%</strong>，较此前 SOTA 提升 7 个百分点，且随模型从 117M 扩到 1.5B 呈单调攀升。
+              </li>
+              <li>
+                <strong>CoQA 对话阅读理解</strong>：输入“文档 + 对话历史 + <code>A:</code>”贪心解码，零样本取得 <strong>55 F1</strong>，无需接触 12.7 万条人工标注 QA 对就打平或超过了 4 个有监督基线中的 3 个（但仍大幅落后于接近人类 89 F1 的有监督 BERT）。作者非常诚实地指出错误模式：模型经常走捷径，比如遇到 <code>Who</code> 问题就从文章里随便抽一个人名。
+              </li>
+              <li>
+                <strong>CNN/Daily Mail 文本摘要（原论文 Table 4）</strong>：在原文末尾拼 <code>TL;DR:</code> 诱导生成 3 句摘要（top-k=2 采样）：
+              </li>
+            </ul>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>方法</th>
+                    <th class="num">ROUGE-1</th>
+                    <th class="num">ROUGE-2</th>
+                    <th class="num">ROUGE-L</th>
+                    <th class="num">R-AVG</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Bottom-Up Sum（有监督 SOTA）</td>
+                    <td class="num best">41.22</td>
+                    <td class="num best">18.68</td>
+                    <td class="num best">38.34</td>
+                    <td class="num best">32.75</td>
+                  </tr>
+                  <tr>
+                    <td>Lede-3（直接取文章前 3 句）</td>
+                    <td class="num">40.38</td>
+                    <td class="num">17.66</td>
+                    <td class="num">36.62</td>
+                    <td class="num">31.55</td>
+                  </tr>
+                  <tr>
+                    <td>Seq2Seq + Attn（有监督）</td>
+                    <td class="num">31.33</td>
+                    <td class="num">11.81</td>
+                    <td class="num">28.83</td>
+                    <td class="num">23.99</td>
+                  </tr>
+                  <tr>
+                    <td><strong>GPT-2（<code>TL;DR:</code> 提示）</strong></td>
+                    <td class="num">29.34</td>
+                    <td class="num">8.27</td>
+                    <td class="num">26.58</td>
+                    <td class="num">21.40</td>
+                  </tr>
+                  <tr>
+                    <td>Random-3（随机抽 3 句）</td>
+                    <td class="num">28.78</td>
+                    <td class="num">8.63</td>
+                    <td class="num">25.52</td>
+                    <td class="num">20.98</td>
+                  </tr>
+                  <tr>
+                    <td>GPT-2（无 <code>TL;DR:</code> 提示消融）</td>
+                    <td class="num">21.58</td>
+                    <td class="num">4.03</td>
+                    <td class="num">19.47</td>
+                    <td class="num">15.03</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ul>
+              <li>
+                <strong>消融启示</strong>：加不加 <code>TL;DR:</code> 直接拉开 <strong>+6.37 R-AVG</strong>，说明任务条件提示确实能触发潜藏能力；但绝对分数仅略高于随机抽 3 句，证明 1.5B 的零样本抽象摘要还远未实用。
+              </li>
+              <li>
+                <strong>WMT-14 机器翻译</strong>：尽管 WebText 刻意过滤了非英语网页、只剩约 <strong>10MB 法语文本</strong>，通过上下文示范 <code>english = french</code>，GPT-2 在 <strong>En→Fr 拿到 5.0 BLEU</strong>，在 <strong>Fr→En 拿到 11.5 BLEU</strong>（强英语生成先验明显利好译入英语，已超过部分早年无监督神经机器翻译基线）。
+              </li>
+              <li>
+                <strong>Natural Questions 闭卷问答（原论文 Table 5）</strong>：即便零样本总体 EM 只有 4.1%，但模型自身输出的概率<strong>校准度极高</strong>——在置信度最高的 1% 回答上准确率达到 63.1%，排名前 30 的高置信答案几乎全对（且经排查均未出现在 WebText 中）。
+              </li>
+            </ul>
+          </section>
+
+          <section id="memorization">
+            <h2>四、泛化 vs. 记忆：8-gram 数据泄漏排查（原论文 Table 6）</h2>
+            <p>
+              质疑零样本结果最常见的一句反问是：“是不是测试集早就混进 40GB 的 WebText 里被模型背下来了？”论文第 4 节专门用假阳性率上限 $10^{-8}$ 的 <strong>8-gram Bloom Filter</strong> 做了极严格的交叉重叠检测：
+            </p>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>测试集 8-gram 重叠来源</th>
+                    <th class="num">PTB</th>
+                    <th class="num">WT-2</th>
+                    <th class="num">enwik8</th>
+                    <th class="num">text8</th>
+                    <th class="num">WT-103</th>
+                    <th class="num">1BW</th>
+                    <th class="num">均值</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>与<strong>数据集自身训练集</strong>重叠</td>
+                    <td class="num">2.67%</td>
+                    <td class="num">0.66%</td>
+                    <td class="num">7.50%</td>
+                    <td class="num">2.34%</td>
+                    <td class="num">9.09%</td>
+                    <td class="num">13.19%</td>
+                    <td class="num"><strong>5.9%</strong></td>
+                  </tr>
+                  <tr>
+                    <td>与 <strong>WebText 训练集</strong>重叠</td>
+                    <td class="num">0.88%</td>
+                    <td class="num">1.63%</td>
+                    <td class="num">6.31%</td>
+                    <td class="num">3.94%</td>
+                    <td class="num">2.42%</td>
+                    <td class="num">3.75%</td>
+                    <td class="num"><strong>3.2%</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p>
+              结果颇为反直觉：主流 LM 测试集与 WebText 的平均重叠率仅 <strong>3.2%</strong>，甚至<strong>明显低于它们与各自官方训练集的平均重叠率（5.9%，其中 1BW 自身泄漏高达 13.19%）</strong>；Winograd 273 题里真正有实质上下文重叠的仅 1 题。此外，WebText 训练集与测试集上的 loss 曲线几乎贴合且仍在同步下降——说明 1.5B 模型此时处于<strong>明显欠拟合（Underfitting）</strong>状态，远未靠死记硬背刷分。
+            </p>
+          </section>
+
+          <section id="conclusion">
+            <h2>五、结论与历史定位</h2>
+            <ol>
+              <li>
+                <strong>证明了无监督缩放的连续收益</strong>：从 117M 到 1.5B，几乎所有任务指标都随参数量呈平滑的对数线性改善，且完全没有触顶迹象——这直接催生了次年的 <em>Scaling Laws</em>（Kaplan et al., 2020）和 <em>GPT-3</em>（175B, Brown et al., 2020）。
+              </li>
+              <li>
+                <strong>确立了后代 LLM 的基础工程模板</strong>：Byte-level BPE、Pre-LN 残差结构、深度缩放初始化、启发式高质量网页过滤、以及基于 n-gram 去重/污染审计，此后多年一直是预训练的标准起手式。
+              </li>
+              <li>
+                <strong>诚实划清了 1.5B 的能力边界</strong>：论文并未夸大零样本结果——它在摘要、翻译与复杂阅读理解上明确弱于有监督专模，也解释了为什么后续必须靠更大规模（GPT-3 的 Few-shot In-Context Learning）以及指令微调 / RLHF 才能把潜藏能力稳定释放出来。
+              </li>
+            </ol>
           </section>
 
           <section class="note-refs" id="references">
@@ -187,7 +409,9 @@
             <ol>
               <li>
                 Alec Radford, Jeffrey Wu, Rewon Child, David Luan, Dario Amodei, Ilya Sutskever (2019),
-                <em>Language Models are Unsupervised Multitask Learners</em>, OpenAI.
+                <a href="https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf"
+                  ><em>Language Models are Unsupervised Multitask Learners</em> ↗</a
+                >, OpenAI.
               </li>
             </ol>
           </section>
