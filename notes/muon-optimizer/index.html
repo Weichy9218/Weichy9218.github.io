@@ -67,7 +67,7 @@
           </header>
 
           <p>
-            在 NanoGPT Speedrun 和多款开源大模型预训练中，<strong>Muon（MomentUm Orthogonalized by Newton-Schulz）</strong>用比 AdamW 少 30% 至 50% 的 token 就达到了相同验证集损失。但一线实践和近期理论分析也反复观察到一个硬币的另一面：<strong>Muon 前期下降极快，到了训练后期却容易减速，甚至在最优点附近震荡</strong>。
+            在 NanoGPT Speedrun 和多款开源大模型预训练中，<strong>Muon（MomentUm Orthogonalized by Newton-Schulz）</strong>用比 AdamW 少 30% 至 50% 的 token 就达到了相同验证集损失。但工程实践与近期理论分析也指出了它的局限：<strong>Muon 前期下降很快，到了训练后期却容易减速，甚至在最优点附近震荡</strong>。
           </p>
           <p>
             这篇笔记把这两个现象放进同一套矩阵谱分析里讲清楚：先看传统优化器为什么会被少数大奇异值垄断，再拆解 Muon 如何通过矩阵正交化和五阶 Newton-Schulz 迭代实现谱拉平，最后结合近期联想记忆与河谷（River-Valley）动力学理论，说清它的加速来源、后期震荡原因与工程用法。
@@ -116,7 +116,7 @@
           <section id="newton-schulz">
             <h2>3. 工程上如何绕开 SVD：五阶 Newton-Schulz 迭代</h2>
             <p>
-              如果在每个优化步都对大型权重矩阵做精确 SVD，计算开销会彻底吞噬加速收益。Keller Jordan 的关键工程突破，是用 <strong>5 步五阶奇数次 Newton-Schulz 多项式迭代</strong>在 <code>bfloat16</code> 下近似矩阵正交化：
+              如果在每个优化步都对大型权重矩阵做精确 SVD，计算开销会抵消加速收益。Keller Jordan 的关键工程突破，是用 <strong>5 步五阶奇数次 Newton-Schulz 多项式迭代</strong>在 <code>bfloat16</code> 下近似矩阵正交化：
             </p>
             $$X_{k+1} = a X_k + b (X_k X_k^\top) X_k + c (X_k X_k^\top)^2 X_k, \qquad X_0 = \frac{M_t}{\|M_t\|_F + \epsilon}$$
             <p>
@@ -189,7 +189,7 @@
             </p>
             <ul>
               <li>训练前期，不同方向的梯度幅度悬殊，抹平奇异值正好消除了各向异性，让小奇异值方向不再被淹没。</li>
-              <li>训练后期，参数已经逼近最优点（河谷底部），此时真正需要的不再是「一视同仁的大步迈进」，而是随残差自然缩小的精细步长。Muon 每一步仍强行把更新矩阵的奇异值重新归一化到 1（等价于过度正则化），在固定学习率下必然反复跨过谷底产生<strong>震荡（oscillatory）</strong>和有效推进<strong>减速（decelerating）</strong>。</li>
+              <li>训练后期，参数已经逼近最优点（河谷底部），此时需要随残差自然缩小的步长。Muon 每一步仍把更新矩阵的奇异值归一化到 1（等价于过度正则化），在固定学习率下必然反复跨过谷底产生<strong>震荡（oscillatory）</strong>和有效推进<strong>减速（decelerating）</strong>。</li>
             </ul>
           </section>
 

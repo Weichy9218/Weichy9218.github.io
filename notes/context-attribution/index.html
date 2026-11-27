@@ -508,7 +508,7 @@
               <p class="note-callout-title">三条核心结论</p>
               <ol>
                 <li><strong>单步方法决定「局部准不准」，图传播决定「长链断不断」</strong>：对于单轮短答，ContextCite（黑盒高效）或 IG × Attention（白盒精细）已足够；一旦涉及多步 CoT 或多轮 Agent 轨迹，必须把生成步之间的依赖建图传播（如 CAGE 的 $Y = A(I-A)^{-1}$），否则前文关键前提会被中间步骤遮蔽。</li>
-                <li><strong>扰动法的核心瓶颈不是理论，而是 OOD 与算力</strong>：用 <code>[PAD]</code>/<code>[EOS]</code> 硬抹除会引入分布外噪声，ReAGent 和反事实 Editor 的价值就在于把干预拉回自然分布内；而 AttriBoT 的 KV-Cache 复用 + 粗粒度分块 + 代理模型则是线上可落地的关键工程组合。</li>
+                <li><strong>扰动法落地的主要瓶颈是 OOD 输入和推理开销</strong>：用 <code>[PAD]</code>/<code>[EOS]</code> 硬抹除会引入分布外噪声，ReAGent 和反事实 Editor 的价值在于把干预拉回自然分布内；而 AttriBoT 的 KV-Cache 复用 + 粗粒度分块 + 代理模型则是降低线上算力成本的关键工程组合。</li>
                 <li><strong>长上下文与 Agent 场景的延伸价值</strong>：上下文归因不仅服务于可解释性可视化，更能直接反哺长上下文压缩、RAG 证据溯源、以及多轮 Agent 轨迹中「哪条工具观察真正决定了最终结论」的信用分配（Credit Assignment）。</li>
               </ol>
             </div>

@@ -158,7 +158,7 @@
             </p>
             <ul>
               <li>
-                <strong>Forward KL $D_{\text{KL}}(\pi_T \| \pi_\theta)$（普通 SFT / Off-policy 蒸馏）</strong>：期望取在 Teacher 分布上。只要 Teacher 会生成某种写法，Student 就被迫给它分配足够概率，因此表现为 <strong>Mode-covering（覆盖所有模式）</strong>，小容量模型容易在多个模式之间摊平概率，产生模糊或幻觉输出。
+                <strong>Forward KL $D_{\text{KL}}(\pi_T \| \pi_\theta)$（普通 SFT / Off-policy 蒸馏）</strong>：期望取在 Teacher 分布上。只要 Teacher 会生成某种写法，Student 就被迫给它分配足够概率，因此表现为 <strong>Mode-covering（覆盖所有模式）</strong>，小容量模型容易在多个模式之间平均分配概率，产生模糊或幻觉输出。
               </li>
               <li>
                 <strong>Reverse KL $D_{\text{KL}}(\pi_\theta \| \pi_T)$（OPD）</strong>：期望取在 Student 自己采样的分布上。只要 Student 落进 Teacher 认可的某一个高概率模式里，就不会因为没覆盖 Teacher 的其他解法而受罚，因此表现为 <strong>Mode-seeking（聚焦高概率模式）</strong>，对参数量受限的小模型格外友好。
@@ -167,7 +167,7 @@
 
             <h3>2.2 逐 Token 奖励与具体数值直观</h3>
             <p>
-              把每一步的 Reverse KL 样本项取负号，就得到极其直观的 per-token reward / advantage：
+              把每一步的 Reverse KL 样本项取负号，就得到直观的 per-token reward / advantage：
             </p>
             $$r_t = \log \pi_{\text{teacher}}(x_{t+1} \mid x_{1:t}) - \log \pi_\theta(x_{t+1} \mid x_{1:t})$$
             <p>
@@ -202,7 +202,7 @@
 
             <h3>3.3 抗 Reward Hacking（Unhackable 的准确边界）</h3>
             <p>
-              独立训练的标量 Reward Model 容易被策略钻空子（凑字数、装自信、刷格式）。OPD 没有独立的判别器，奖励直接来自 Teacher 自身的生成对数概率分布：Student 想拿到低 Reverse KL，在数学上就必须在自己常采样的区域里逼近 Teacher 的条件分布，不可能找到一个「Teacher 给出极低概率但奖励很高」的漏洞。需要澄清的是，<strong>unhackable 不等于绝对正确</strong>：如果 Teacher 本身在某题上会犯错，Student 仍会学到 Teacher 的偏见。
+              独立训练的标量 Reward Model 容易被策略利用漏洞（凑字数、装自信、刷格式）。OPD 没有独立的判别器，奖励直接来自 Teacher 自身的生成对数概率分布：Student 想拿到低 Reverse KL，在数学上就必须在自己常采样的区域里逼近 Teacher 的条件分布，不可能找到一个「Teacher 给出极低概率但奖励很高」的漏洞。需要澄清的是，<strong>unhackable 不等于绝对正确</strong>：如果 Teacher 本身在某题上会犯错，Student 仍会学到 Teacher 的偏见。
             </p>
 
             <h3>3.4 样本高效与多轮复用不塌缩</h3>
@@ -214,9 +214,9 @@
           <section id="experiments">
             <h2>4. 实验证据：惩罚分叉 Token，用约 1/10 RL 算力推高 AIME 与行为恢复</h2>
 
-            <h3>4.1 核心机制现象：惩罚的是「分叉 Token」，而非最终错答案</h3>
+            <h3>4.1 核心机制现象：惩罚集中在「分叉 Token」</h3>
             <p>
-              把 OPD 在一条错误推理轨迹上的逐 token Reverse KL 画出来，会出现一个极具启发性的现象：<strong>错误结论并不是在最后一个词突然蹦出来的，而是前面某几个关键推理决策把路径带偏后的必然结果。</strong>
+              把 OPD 在一条错误推理轨迹上的逐 token Reverse KL 画出来，可以观察到一个明确规律：<strong>错误结论通常由前文少数关键推理分叉引发，后续步骤只是沿错误前提推演的自然结果。</strong>
             </p>
 
             <figure class="note-img-figure">
@@ -229,7 +229,7 @@
             </figure>
 
             <p>
-              配合 $\gamma = 0$，OPD 真正教给模型的不是「你最后算错了」，而是「<strong>你在第 $t$ 步把现实问题当成纯算术题、忽略了冰块会融化</strong>」。放到多轮工具调用 Agent 里同理：最有信息量的梯度不是末尾的 <code>answer wrong</code>，而是中间那个分叉瞬间：本该先调用搜索却直接作答、本该核对 observation 却视而不见、本该收尾却陷入死循环。
+              配合 $\gamma = 0$，OPD 直接把梯度指向第 $t$ 步出错的前提判断（「把现实问题当成纯算术题、忽略了冰块会融化」），而不仅是在结尾给出对错标记。放到多轮工具调用 Agent 里同理，最有信息量的更新落在中间决策分叉点：本该先调用搜索却直接作答、本该核对 observation 却视而不见、本该收尾却陷入死循环。
             </p>
 
             <h3>4.2 定量对比：数学推理（AIME'24）与企业知识个性化</h3>
@@ -299,7 +299,7 @@ Stage 2 | On-Policy Distillation（在已有 Support 上做密集修正与行为
   └─ Student 自主采样 rollout，同构 Teacher 逐 token Reverse KL 打分
   └─ 消除长程曝光偏差，低成本把 AIME'24 推至 70% / 恢复助手行为</code></pre>
             <p>
-              一句话定位 OPD：它不是从零造能力的引擎，而是在 Student 已经具备基础 Support 之后，把策略分布高效率、低遗忘地拉齐到 Teacher 高质量区域的最佳精修器。
+              总结 OPD 的定位：它无法从零建立分布之外的新能力，但在 Student 已具备基础 Support 后，能以低算力和低遗忘的方式把策略分布对齐到 Teacher 的高概率区域。
             </p>
           </section>
 

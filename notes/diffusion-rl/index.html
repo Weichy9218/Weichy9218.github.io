@@ -166,7 +166,7 @@
 
             <h3>3.1 动机：Model-Based RL 为什么容易遭遇「模型利用（Model Exploitation）」？</h3>
             <p>
-              传统 Model-Based RL 先用监督学习拟合单步转移模型 $\hat{T}(s_{t+1} \mid s_t, a_t)$，再在模型上用强规划器（如 CEM / MPPI）搜索最大化回报的动作序列。但任何拟合模型与真实环境都存在误差，<strong>强优化器会系统性地专挑模型最不准、被高估的盲区走捷径</strong>，导致纸面回报极高、真实环境执行崩溃。
+              传统 Model-Based RL 先用监督学习拟合单步转移模型 $\hat{T}(s_{t+1} \mid s_t, a_t)$，再在模型上用强规划器（如 CEM / MPPI）搜索最大化回报的动作序列。但任何拟合模型与真实环境都存在误差，<strong>强优化器会系统性地利用模型误差最大、回报被高估的区域</strong>，导致纸面回报极高、真实环境执行崩溃。
             </p>
             <p>
               <a href="https://arxiv.org/abs/2205.09991"><strong>Diffuser</strong></a>（Janner et al., ICML 2022）的核心洞见是<strong>让动力学建模与轨迹规划合二为一（Sampling = Planning）</strong>：

@@ -76,7 +76,7 @@
           <section id="interactive-scaling">
             <h2>1. 为什么 30B 模型能靠 600 轮交互追平闭源大模型？</h2>
             <p>
-              纯推理模型依靠 test-time 内部长思考（Chain-of-Thought）解题，但封闭思考缺乏外部验证，在需要查证实时或多跳事实的任务里容易越想越偏。MiroThinker（基于 Qwen2.5 与 Qwen3-30B-A3B / 72B 初始化）支持 <strong>256K 上下文</strong>和单任务最多 <strong>600 轮工具交互</strong>，把核心赌注押在两项基础设计上：
+              纯推理模型依靠 test-time 内部长思考（Chain-of-Thought）解题，但封闭思考缺乏外部验证，在需要查证实时或多跳事实的任务里容易越想越偏。MiroThinker（基于 Qwen2.5 与 Qwen3-30B-A3B / 72B 初始化）支持 <strong>256K 上下文</strong>和单任务最多 <strong>600 轮工具交互</strong>，核心依托两项基础设计：
             </p>
             <ul>
               <li>
@@ -137,14 +137,14 @@
             </p>
             $$\mathcal{L}_{\text{PO}}(\theta) = \mathbb{E}_{(x, H^+, H^-)}\bigl[\mathcal{L}_{\text{DPO}}(x, H^+, H^-)\bigr] + \lambda\, \mathcal{L}_{\text{SFT}}^{(+)}(\theta)$$
             <p>
-              直觉很直接：DPO 负责把策略从错误轨迹推开，辅助 SFT 像锚一样把生成分布拉回高质量轨迹与严格工具格式上。
+              两项损失的分工明确：DPO 把策略推离错误轨迹，辅助 SFT 约束生成分布停留在高质量轨迹和合法工具格式附近。
             </p>
           </section>
 
           <section id="stage3-grpo">
             <h2>4. Stage 3 Agentic GRPO：用流式异步 Rollout 打破长尾拖累</h2>
             <p>
-              离线 SFT 与 DPO 都受限于既有轨迹分布，第三阶段通过在线 <strong>GRPO（Group Relative Policy Optimization）</strong>让模型在真实搜索、网页抓取、Python 沙箱和 Linux 虚拟机环境里自主探索。把 RL 搬到几百轮交互的 Agent 场景，最先卡死的不是算法公式，而是系统吞吐和轨迹噪声。
+              离线 SFT 与 DPO 都受限于既有轨迹分布，第三阶段通过在线 <strong>GRPO（Group Relative Policy Optimization）</strong>让模型在真实搜索、网页抓取、Python 沙箱和 Linux 虚拟机环境里自主探索。把 RL 引入几百轮交互的 Agent 场景后，最先遇到瓶颈的是系统吞吐和轨迹噪声。
             </p>
 
             <h3>4.1 解决长尾 Straggler 问题：Streaming Rollout</h3>
@@ -161,7 +161,7 @@
                 <text x="330" y="45" text-anchor="middle" font-size="10" fill="var(--muted)">GPU 空闲等待 Straggler...</text>
 
                 <rect x="16" y="56" width="504" height="18" rx="3" fill="var(--accent)" opacity="0.25" stroke="var(--accent)" />
-                <text x="268" y="69" text-anchor="middle" font-size="10" fill="var(--ink)">Worker 2 (500 轮长尾轨迹，整批卡死)</text>
+                <text x="268" y="69" text-anchor="middle" font-size="10" fill="var(--ink)">Worker 2 (500 轮长尾轨迹，阻塞整批更新)</text>
                 <rect x="528" y="32" width="134" height="42" rx="4" fill="var(--bg)" stroke="var(--line)" />
                 <text x="595" y="57" text-anchor="middle" font-size="10.5" fill="var(--muted)">才能做 1 次 Update</text>
 
@@ -340,7 +340,7 @@
             <div class="note-callout">
               <p class="note-callout-title">延伸观察：在未来预测（FutureX）这类开放任务里的适用边界</p>
               <p>
-                MiroThinker 擅长的是「目标事实已存在，需要高频搜索、抽取与反复交叉核验」的研究任务；但迁移到开放世界未来预测（如 FutureX）时，仍需看清两类差异：第一，<strong>预测不等于搜索</strong>，最后一步必须把冲突证据校准成概率判断，而不是找到某个确定词条；第二，<strong>时间可见性约束</strong>极其关键，如果训练和推理没有严格截断未来信息，搜索能力越强反而越容易触发时间泄漏（MiroThinker v1.5 已专门补齐时间边界约束）。
+                MiroThinker 擅长的是「目标事实已存在，需要高频搜索、抽取与反复交叉核验」的研究任务；但迁移到开放世界未来预测（如 FutureX）时，仍需看清两类差异：第一，<strong>预测不等于搜索</strong>，最后一步必须把冲突证据校准成概率判断，而不是找到某个确定词条；第二，<strong>时间可见性约束</strong>很关键，如果训练和推理没有严格截断未来信息，搜索能力越强反而越容易触发时间泄漏（MiroThinker v1.5 已专门补齐时间边界约束）。
               </p>
             </div>
           </section>

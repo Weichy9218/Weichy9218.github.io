@@ -184,7 +184,7 @@
                 <strong>纳入真实干扰项（Distractors）</strong>：除了保留 Agent 真正访问过的证据片段，还会刻意混入同一轨迹里出现过但未采纳的搜索结果或未打开的代码文件，迫使模型在数万 token 噪声中学会筛选与定位。
               </li>
               <li>
-                <strong>随机打乱片段顺序（Shuffling）</strong>：把所有证据与干扰项随机重排拼成 $C_i$。目的不是单纯增加难度，而是消除「顺着 Agent 探索的时间顺序直接抄最后几段」的顺序捷径，逼迫模型依靠语义匹配做跨段关联。
+                <strong>随机打乱片段顺序（Shuffling）</strong>：把所有证据与干扰项随机重排拼成 $C_i$，消除「顺着 Agent 探索的时间顺序直接抄最后几段」的顺序捷径，逼迫模型依靠语义匹配做跨段关联。
               </li>
               <li>
                 <strong>合成经验证的推理链 $r_i$</strong>：在几万 token 上下文里如果只监督最终几个词的答案（如 <code>Les Tzars</code>），监督信号依旧过于稀疏。作者使用 <strong>DeepSeek-V3.2-Thinking</strong> 基于 $(q_i, C_i)$ 生成候选推理过程与答案，仅保留最终答案严格匹配真实标签 $y_i$ 的样本。不同领域的合成通过率差距明显：<strong>Search 接近 100%，SQL 约 50%，SWE 仅约 10%</strong>，复杂代码任务的推理链合成构成了实际扩展瓶颈。
@@ -429,7 +429,7 @@
             </figure>
 
             <p>
-              Table 6 暴露了三个非常实在的规律：
+              Table 6 显示了三条关键规律：
             </p>
             <ol>
               <li>
@@ -461,10 +461,10 @@
               <p class="note-callout-title">ACC 真正证明了什么，以及还没拆干净什么</p>
               <ol>
                 <li>
-                  <strong>ACC 训练出的是更强的静态长上下文推理器，不是通用 Agent Policy</strong>：评测集 MRCR 和 GraphWalks 本身就是单轮静态长上下文任务，评测时不需要 ACC 编译；它证明的是「Agent 轨迹日志是极佳且廉价的长上下文数据矿藏」，而如何把这种长上下文证据整合能力无缝反哺回多轮交互式 Agent 策略（例如与标准 Agent SFT / RL 混训），论文尚未验证。
+                  <strong>ACC 训练出的是更强的静态长上下文推理器，不是通用 Agent Policy</strong>：评测集 MRCR 和 GraphWalks 本身就是单轮静态长上下文任务，评测时不需要 ACC 编译；它证明的是「Agent 轨迹日志本身就是低成本的长上下文训练数据来源」，而如何把这种长上下文证据整合能力反哺回多轮交互式 Agent 策略（例如与标准 Agent SFT / RL 混训），论文尚未验证。
                 </li>
                 <li>
-                  <strong>两个增益来源没有完全解耦</strong>：ACC 带来的 +18.09 / +7.59 提升，实际上叠加了<strong>（a）Compiled Context Supervision</strong>（把监督直接锚定到跨段证据上）与<strong>（b）强 Teacher（DeepSeek-V3.2-Thinking）的 Rationale Distillation</strong>。论文没有做「同样用原模型或同等 teacher 生成纯短推理/无编译对照」的消融来把两者的贡献彻底拆开，因此在评估纯架构/数据形态贡献时需要留一分余地。
+                  <strong>两个增益来源没有完全解耦</strong>：ACC 带来的 +18.09 / +7.59 提升，实际上叠加了<strong>（a）Compiled Context Supervision</strong>（把监督直接锚定到跨段证据上）与<strong>（b）强 Teacher（DeepSeek-V3.2-Thinking）的 Rationale Distillation</strong>。论文没有做「同等 teacher 生成无编译对照」的消融来把两者的贡献分开验证，因此在评估纯数据编译贡献时需要保留余地。
                 </li>
               </ol>
             </div>

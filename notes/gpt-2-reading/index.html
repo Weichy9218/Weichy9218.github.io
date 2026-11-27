@@ -58,8 +58,8 @@
           </header>
 
           <p>
-            在 BERT（2018）和 GPT-1（2018）刚刚把“无监督预训练 + 单任务微调”确立为 NLP 黄金范式的几个月后，OpenAI 在 2019 年初发表了
-            <strong>GPT-2</strong>。这篇论文之所以是整个现代大模型路线的转折点，不是因为提出了全新网络结构，而是用一整套严谨的零样本实验和泄漏排查证明了一件事：<strong>当数据多样性与模型容量跨过某个阈值，单纯优化下一个词似然，就能让语言模型在不做任何梯度更新的情况下涌现出多任务能力。</strong>
+            在 BERT（2018）和 GPT-1（2018）把“无监督预训练 + 单任务微调”确立为 NLP 主流范式后，OpenAI 在 2019 年初发表了
+            <strong>GPT-2</strong>。这篇论文成为现代大模型路线转折点的原因，是用零样本实验和泄漏排查证明了一件事：<strong>当数据多样性与模型容量跨过某个阈值，单纯优化下一个词似然，就能让语言模型在不做梯度更新的情况下涌现出多任务能力。</strong>
           </p>
 
           <section id="theory">
@@ -69,16 +69,16 @@
             </p>
             $$p(x) = \prod_{i=1}^{n} p(s_i \mid s_1, \dots, s_{i-1})$$
             <p>
-              传统的单任务监督学习只学习 $p(\text{output} \mid \text{input})$，需要为每个任务单独设计输出头与标注集，结果往往在域外分布上极度脆弱（narrow experts）。而多任务系统应当建模的是以任务为条件的分布：
+              传统的单任务监督学习只学习 $p(\text{output} \mid \text{input})$，需要为每个任务单独设计输出头与标注集，在域外分布上容易失效（narrow experts）。而多任务系统应当建模的是以任务为条件的分布：
             </p>
             $$p(\text{output} \mid \text{input}, \text{task})$$
             <p>
-              在 MQAN（McCann et al., 2018）等早期工作里，人们已经尝试把问答、翻译、摘要统一写成自然语言输入序列，但仍依赖大量人工有监督多任务语料。GPT-2 提出了一个更激进的理论观察：
+              在 MQAN（McCann et al., 2018）等早期工作里，人们已经尝试把问答、翻译、摘要统一写成自然语言输入序列，但仍依赖大量人工有监督多任务语料。GPT-2 提出了一个更直接的理论观察：
             </p>
             <div class="note-callout">
               <p class="note-callout-title">无监督多任务学习的核心推论</p>
               <p>
-                由于自然语言本身能把“任务描述、输入与输出”全都装进同一串文本里（例如一段网页文本天然包含“<code>translate to french, english text, french text</code>”或“<code>Q: ... A: ...</code>”），那么<strong>任意有监督任务的目标，本质上只是大规模无监督语言建模目标的一个子集</strong>。因此，无监督语言模型的全局最优解，与所有包含在语料分布中的有监督任务的全局最优解是一致的：问题不再是“目标函数对不对”，而是<strong>模型容量和训练步数够不够逼近这个最优解</strong>。
+                由于自然语言本身能把“任务描述、输入与输出”装进同一串文本里（例如一段网页文本天然包含“<code>translate to french, english text, french text</code>”或“<code>Q: ... A: ...</code>”），<strong>任意有监督任务的目标只是大规模无监督语言建模目标的一个子集</strong>。因此，无监督语言模型的全局最优解，与语料分布中包含的所有有监督任务的全局最优解一致；真正的制约变成了<strong>模型容量和训练步数够不够逼近这个最优解</strong>。
               </p>
             </div>
           </section>
@@ -100,7 +100,7 @@
               如果直接在 Unicode 码点上做 BPE，光基础字符集就超过 13 万，词表空间被严重挤占；而纯字节级语言模型在 1BW 等大基准上仍明显落后于词级模型。GPT-2 折中提出了<strong>字节级 BPE（Byte-level BPE）</strong>：
             </p>
             <ul>
-              <li>基础词表固定为 <strong>256 个 UTF-8 字节</strong>，保证模型能给<strong>任意 Unicode 字符串</strong>分配合法概率，彻底消灭 <code>&lt;UNK&gt;</code>，也因此能跨任意分词/预处理规范评测任意数据集；</li>
+              <li>基础词表固定为 <strong>256 个 UTF-8 字节</strong>，保证模型能给<strong>任意 Unicode 字符串</strong>分配合法概率，消除了 <code>&lt;UNK&gt;</code>，也因此能跨任意分词/预处理规范评测任意数据集；</li>
               <li><strong>关键工程修补</strong>：朴素字节 BPE 会因为标点高频共现把同一个词拆出 <code>dog.</code>、<code>dog!</code>、<code>dog?</code> 等多个重复槽位。作者强制<strong>禁止 BPE 跨字符类别合并</strong>（仅对空格保留例外以维持压缩率），最终定在 <strong>50,257</strong> 词表（256 基础字节 + 50,000 次合并 + 1 个 <code>&lt;|endoftext|&gt;</code>）。</li>
             </ul>
 
@@ -252,7 +252,7 @@
             </div>
             <ul>
               <li>
-                <strong>7/8 语言建模基准零样本刷新 SOTA</strong>：尤其在小数据集（PTB、WikiText-2，训练集仅 100–200 万词）与长程依赖任务（LAMBADA 困惑度从 99.8 骤降至 <strong>8.63</strong>，裸准确率 52.66%，加停用词过滤升至 <strong>63.24%</strong>）上提升极其悬殊。
+                <strong>7/8 语言建模基准零样本刷新 SOTA</strong>：尤其在小数据集（PTB、WikiText-2，训练集仅 100–200 万词）与长程依赖任务（LAMBADA 困惑度从 99.8 降至 <strong>8.63</strong>，裸准确率 52.66%，加停用词过滤升至 <strong>63.24%</strong>）上提升幅度很大。
               </li>
               <li>
                 <strong>唯一显著落后的 1BW（42.16 vs. 21.8）为何掉队？</strong>因为 1BW 是最大且预处理破坏最严重的基准：它把句子顺序全部打乱（sentence-level shuffling），直接剥夺了 GPT-2 跨句长程上下文的优势。
@@ -385,7 +385,7 @@
               </table>
             </div>
             <p>
-              结果颇为反直觉：主流 LM 测试集与 WebText 的平均重叠率仅 <strong>3.2%</strong>，甚至<strong>明显低于它们与各自官方训练集的平均重叠率（5.9%，其中 1BW 自身泄漏高达 13.19%）</strong>；Winograd 273 题里真正有实质上下文重叠的仅 1 题。此外，WebText 训练集与测试集上的 loss 曲线几乎贴合且仍在同步下降，说明 1.5B 模型此时处于<strong>明显欠拟合（Underfitting）</strong>状态，远未靠死记硬背刷分。
+              检测结果与直觉相反：主流 LM 测试集与 WebText 的平均重叠率仅 <strong>3.2%</strong>，甚至<strong>明显低于它们与各自官方训练集的平均重叠率（5.9%，其中 1BW 自身泄漏高达 13.19%）</strong>；Winograd 273 题里真正有实质上下文重叠的仅 1 题。此外，WebText 训练集与测试集上的 loss 曲线几乎贴合且仍在同步下降，说明 1.5B 模型此时处于<strong>明显欠拟合（Underfitting）</strong>状态，远未靠死记硬背刷分。
             </p>
           </section>
 
@@ -396,7 +396,7 @@
                 <strong>证明了无监督缩放的连续收益</strong>：从 117M 到 1.5B，几乎所有任务指标都随参数量呈平滑的对数线性改善，且没有触顶迹象，这直接催生了次年的 <em>Scaling Laws</em>（Kaplan et al., 2020）和 <em>GPT-3</em>（175B, Brown et al., 2020）。
               </li>
               <li>
-                <strong>确立了后代 LLM 的基础工程模板</strong>：Byte-level BPE、Pre-LN 残差结构、深度缩放初始化、启发式高质量网页过滤、以及基于 n-gram 去重/污染审计，此后多年一直是预训练的标准起手式。
+                <strong>确立了后代 LLM 的基础工程模板</strong>：Byte-level BPE、Pre-LN 残差结构、深度缩放初始化、启发式高质量网页过滤、以及基于 n-gram 去重与污染审计，此后多年一直是预训练的通用配置。
               </li>
               <li>
                 <strong>诚实划清了 1.5B 的能力边界</strong>：论文并未夸大零样本结果，它在摘要、翻译与复杂阅读理解上明确弱于有监督专模，也解释了为什么后续必须靠更大规模（GPT-3 的 Few-shot In-Context Learning）以及指令微调 / RLHF 才能把潜藏能力稳定释放出来。
