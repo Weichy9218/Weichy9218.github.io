@@ -446,6 +446,52 @@ h3 {
   font-size: 14px;
   color: var(--muted);
 }
+.note-tip {
+  margin: 18px 0;
+  padding: 12px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.note-tip summary {
+  cursor: pointer;
+  font-weight: 550;
+  color: var(--ink);
+  list-style-position: inside;
+}
+.note-tip summary:hover {
+  color: var(--accent);
+}
+.note-tip summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.note-tip[open] summary {
+  margin-bottom: 10px;
+}
+.note-tip p,
+.note-tip ul,
+.note-tip ol {
+  margin: 8px 0;
+}
+.note-tip p:last-child,
+.note-tip ul:last-child,
+.note-tip ol:last-child {
+  margin-bottom: 0;
+}
+.note-chat {
+  margin-top: 38px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 14px;
+}
+.note-chat h2 {
+  font-size: 17px;
+  color: var(--ink);
+}
 .note-refs {
   margin-top: 40px;
   padding-top: 24px;

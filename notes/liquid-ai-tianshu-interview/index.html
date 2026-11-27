@@ -7,7 +7,7 @@
     <title>验证速度决定迭代上限 | Chuyang Wei</title>
     <meta
       name="description"
-      content="Liquid AI 于天舒访谈笔记：聊 Data Scaling、多轮 Agent RL、延迟反馈与硬件物理上限。"
+      content="Liquid AI 于天舒访谈技术笔记：端侧硬件约束、Data Scaling 与数据体感、多轮 Agent RL 沙盒、Benchmark 闭环，以及 RSI 与验证速度瓶颈。"
     />
     <link
       rel="canonical"
@@ -17,7 +17,7 @@
     <meta property="og:title" content="验证速度决定迭代上限" />
     <meta
       property="og:description"
-      content="Liquid AI 于天舒访谈笔记：聊 Data Scaling、多轮 Agent RL、延迟反馈与硬件物理上限。"
+      content="Liquid AI 于天舒访谈技术笔记：端侧硬件约束、Data Scaling 与数据体感、多轮 Agent RL 沙盒、Benchmark 闭环，以及 RSI 与验证速度瓶颈。"
     />
     <meta
       property="og:url"
@@ -53,125 +53,133 @@
             <p class="eyebrow">NOTE · 2026-11-26</p>
             <h1>验证速度决定迭代上限</h1>
             <p class="note-meta">
-              Liquid AI 于天舒访谈笔记 · Chuyang Wei · RSI / Delayed Feedback / Agentic RL
+              Liquid AI 于天舒访谈笔记 · Chuyang Wei · RSI / Agentic RL / Data Scaling
             </p>
           </header>
 
           <p>
-            最近刷到月球大叔在 SGLang Summit 现场采访 Liquid AI 工程师
+            最近看了月球大叔在 SGLang Summit 现场采访 Liquid AI 工程师
             <strong>于天舒（Tianshu Yu）</strong>的视频（<a
               href="https://www.youtube.com/watch?v=ztyvknhxNtQ"
               >《让大模型在边缘设备跑？》↗</a
-            >）。他之前在字节带过 RL Infra，也是 veRL 的核心贡献者，去 Liquid AI
-            一年左右，从推理优化一路做到 RL Infra，又做到视觉语言模型（VLM）的预训练和架构。
+            >）。他之前在字节带过 RL Infra，也是 veRL 的核心贡献者，加入 Liquid AI
+            一年来从推理优化一路做到 RL Infra，又做到视觉语言模型（VLM）的预训练和架构设计，最近刚参与发布第三代模型
+            LFM3（视觉能力明显提升，并新增了视频理解）。
           </p>
           <p>
-            整段采访只有 13 分钟，聊得很实在，基本没什么公关词。里面有几个点——数据体感、多轮
-            RL 的工程卡点、验证速度，还有工程里的第一性原理——跟我自己平时关心的延迟反馈、Agent
-            harness 演化和 RSI 挺有共鸣。把他的核心原话和少数几个直接相关的研究整理一下，留个笔记。
+            整段采访 13 分钟，聊得非常直接。开头他先点出了 Liquid AI 和 OpenAI、Anthropic、Thinking
+            Machines 的定位差异：他们死磕的是<strong>效率与硬件定制</strong>。比如和奔驰合作车载智能时，车机只能分出极小一块硬件资源，团队必须在硬约束下专门设计
+            <strong>1B 参数以下</strong>的模型，把车载语音助手等功能跑顺。
           </p>
+          <p>往下聊到训练、RL、评测和 RSI 时，他讲的几个技术判断很实在，下面结合原话和少量直接相关的文献记下来。</p>
 
           <section id="data-scaling">
             <h2>一、Data Scaling：模型的问题，最后大多还是数据问题</h2>
             <p>
-              被问到 Pre-training、Test-time、RL 几种 Scaling 哪个最重要时，于天舒直接选了
-              <strong>Data Scaling</strong>。他的判断很朴素：模型很多毛病，追到底要么是数据多样性不够，要么是任务合成不到位。真正值钱的是一套系统化的数据基建——从各种来源抓取、清洗、做质控，再配一个看板，能看清每个训练
-              batch 里各类知识和数据的占比。
+              被问到 Pre-training、Test-time、RL 几种 Scaling 哪个最重要，于天舒没有犹豫，直接选了
+              <strong>Data Scaling</strong>：
             </p>
-            <p>访谈里关于数据的两个细节听完很有感触：</p>
+            <blockquote>
+              <p>
+                “很多很多的问题都是因为 data 要么是 diversity 不够，要么是 task
+                合成的东西不够……需要一个非常好的 data pipeline，能从各种 source 里面 scrape
+                data，systematically clean，有 quality control，有看板能看每个训练 batch
+                里面有多少 data 属于哪种类型、哪种知识。Data 是最最最 valuable 的部分。”
+              </p>
+            </blockquote>
+            <p>关于数据，访谈里有两个很具体的一线体感：</p>
             <ul>
               <li>
-                <strong>数据目前还是重人力活，Agent 替不了人的「data sense」</strong
-                >。他的原话很直接：“你即使有智能体，智能体它其实没有太好的 data sense。很多时候就得用
-                human eye 去 vibe check 这个 data 到底可能有什么问题，然后看损失曲线——曲线不太对，得判断到底是
-                data 有问题，还是 infra 里面有 bug。”（他在 Redpanda <em>Hello, Agent!</em>
-                播客里也提过类似的一线坑：训练里最难搞的往往不是直接报错崩溃，而是浮点漂移、微调数据过度集中导致的能力坍缩这类静默问题。）
+                <strong>数据目前依然是重人力活，Agent 替不了人的「data sense」</strong
+                >。他的原话很直白：“你即使有智能体，智能体它其实没有太好的 data sense。很多时候就得用
+                human eye 去 vibe check 这个 data 到底可能会有什么问题，然后看损失曲线——曲线不太对，得判断到底是
+                data 有问题，还是 infra 里面有点 bug。”（他在 Redpanda <em>Hello, Agent!</em>
+                播客里也提过，训练里最难排查的往往不是直接报错崩溃，而是浮点舍入漂移、微调数据分布过于集中导致的能力坍缩这类静默问题。）
               </li>
               <li>
-                <strong>为什么暂时不买 Mercor / Scale AI / Surge AI 的数据</strong
-                >。原因也挺现实：一是贵；二是他们发现自己内部合成的数据，加上真实企业客户的数据，已经覆盖了外包商能提供的大部分内容，目前还没到非花大钱外采不可的阶段。
+                <strong>为什么暂时不采购 Mercor / Scale AI / Surge AI 的数据</strong
+                >。一是价格贵；二是他们发现自己内部合成的数据，叠加真实企业客户场景数据，已经基本覆盖了外包商能提供的大部分内容，目前还没到必须花大钱外采稀缺数据的阶段。
               </li>
             </ul>
             <p>
-              学术界最近也有挺直接的呼应。预训练数据配比已经开始从拍脑袋转向小代理模型量化预测（比如
-              <strong>RegMix</strong>，ICLR 2025）；而关于“Agent 缺 data sense”，今年有一篇
-              <strong>RSIBench-Data</strong>（<a href="https://arxiv.org/abs/2607.25886"
+              学术界近期的对照实验也印证了这两点：一方面，预训练数据配比正从拍脑袋转向小代理模型量化预测（如
+              <strong>RegMix</strong>，ICLR 2025）；另一方面，专门评测“Agent
+              做数据研究员”的 <strong>RSIBench-Data</strong>（<a
+                href="https://arxiv.org/abs/2607.25886"
                 >arXiv:2607.25886</a
-              >）专门测了 LLM Agent
-              当“数据研究员”的效果——让它自己诊断模型短板、改数据配比、微调再迭代。结果一半以上情况第一轮能涨点，但拉长迭代轮次后很容易越调越偏，最后反而掉到峰值下面。Agent
-              很会跑清洗脚本，但看一眼样本和 loss 曲线就嗅出哪里不对劲，现阶段还是得靠人。
+              >）发现，让 LLM Agent 自主诊断短板、调数据配方、微调再迭代，一半以上情况首轮能涨点，但拉长轮次后很容易越调越偏、最终掉到峰值以下。跑清洗脚本可以交给
+              Agent，但盯着样本和 loss 曲线揪出异常，现阶段还是人的手艺。
             </p>
           </section>
 
           <section id="multi-turn-rl">
-            <h2>二、多轮 Agent RL 与 Benchmark：卡住人的往往是工程周转</h2>
-            <p>谈到大家都在卷的 RL environment（造环境），于天舒点出了单轮和多轮的分水岭：</p>
+            <h2>二、多轮 Agent RL 与 Benchmark：真正卡住迭代的是工程周转</h2>
+            <p>
+              聊到最近很火的造环境（RL environment），于天舒直接指出了单轮和多轮的工程分水岭：
+            </p>
             <blockquote>
               <p>
-                “如果是 single-turn agent 还好，如果你是 multi-turn agent 的话，你会需要有沙盒（sandbox）。如何在有沙盒的环境下，让整个训练任务
+                “在 RL infra 里，environment 真的是非常复杂的一个部分。一开始如果是 single-turn
+                agent 还好，如果你是 multi-turn agent 的话，你会需要有沙盒（sandbox）。如何在有沙盒的环境下，让整个训练任务
                 GPU 不闲置，这都是很有挑战的。”
               </p>
             </blockquote>
             <p>
-              这确实是这两年 Agent RL 基础设施最核心的矛盾。单轮数学或代码任务里，rollout
-              基本是纯 GPU 推理；一进入多轮交互，每条轨迹要不停地「生成 → 进 CPU
-              沙盒跑命令/测试 → 等结果回来再继续」，一旦走传统的同步批处理，昂贵的 GPU
-              集群就得干等批次里最慢的那个长尾任务，利用率会掉得很厉害。所以从
-              <strong>veRL</strong>（<a href="https://arxiv.org/abs/2409.19256"
-                >HybridFlow</a
-              >）后来扩展出的异步 rollout，到 <strong>AReaL</strong>（<a
+              单轮数学或代码任务里，rollout 基本是纯 GPU 推理；一旦进入多轮 Agent
+              交互，每条轨迹都要反复经历「模型生成 → CPU 沙盒执行命令/测试 →
+              等待结果回传」。如果沿用同步批处理，昂贵的 GPU 集群只能干等批次里最慢的那个长尾沙盒（straggler），利用率会迅速塌方。这两年从
+              <strong>veRL</strong>（<a href="https://arxiv.org/abs/2409.19256">HybridFlow</a
+              >）扩展出的异步 server rollout，到 <strong>AReaL</strong>（<a
                 href="https://arxiv.org/abs/2505.24298"
                 >arXiv:2505.24298</a
-              >）把 rollout 和训练彻底解耦、靠 staleness-aware PPO 控住异步带来的策略陈旧度，再到
-              <strong>SkyRL</strong>
-              针对多轮工具调用做流水线调度，本质都是在解同一个问题：<strong>怎么在不把训练搞崩的前提下，把 GPU 空转的气泡压掉。</strong>
+              >）彻底解耦 rollout 与训练、用 staleness-aware PPO 控住策略陈旧度（相比同步最高提速
+              2.77×），再到 <strong>SkyRL</strong>
+              专门针对多轮工具调用做流水线调度，核心都是在解同一件事：<strong>在不把训练搞崩的前提下，把 GPU 空转的气泡压掉。</strong>
             </p>
-            <p>另一个他反复强调的痛点是 <strong>Benchmark</strong>：</p>
+            <p>另一个被他单独拎出来的工程卡点是 <strong>Benchmark</strong>：</p>
             <blockquote>
               <p>
                 “Benchmark 最大的就是要跑得快，因为现在 benchmark 越来越多……而且 comparison 要
                 fair。很多时候 prompt 换一下，或者 reasoning 强度换一下，模型的 score
-                都没有可比性。所以需要一个好的 benchmark 看板，让你边训模型就可以边 eval，这样才能有很好的迭代
-                feedback。”
+                都没有可比性。所以需要一个好的 benchmark 看板，有 systematic
+                的方式让你边训模型就可以边 eval，这样才能有很好的迭代 feedback。”
               </p>
             </blockquote>
             <p>
               Sclar 等人（ICLR 2024，<a href="https://arxiv.org/abs/2310.11324"
                 >arXiv:2310.11324</a
-              >）早就测过，哪怕只改语义等价的 prompt
-              排版，模型准确率都能上下晃几十个点；到了推理模型时代，不同思考预算下的分数更不好硬比。这也让我想到我们自己在做
-              <a href="https://arxiv.org/abs/2604.26733">FutureWorld</a> 和
-              <a href="https://arxiv.org/abs/2606.17029">DEEPRUBRIC</a>
-              时的切身体会——只要任务从封闭题库走向真实环境或复杂 rubric，评测的稳定性、吞吐和信噪比，往往比换一个
-              RL 算法本身更早卡住迭代。
+              >）测过，仅改变语义等价的 prompt
+              格式，模型分数就能波动几十个点；到了推理模型阶段，不同思考预算下的分数更没法直接拉齐。所以评测基建的价值不只是出榜，而是要做成能“边训边评、口径严格对齐”的高频反馈表。
             </p>
           </section>
 
           <section id="rsi-verification-speed">
-            <h2>三、RSI 的现状，以及比「可验证」更现实的「验证速度」</h2>
+            <h2>三、RSI 的现实坐标，以及比「可验证」更卡脖子的「验证速度」</h2>
+            <p>关于硅谷热炒的 RSI（递归自我改进），于天舒先讲了现实，再讲了目标：</p>
+            <blockquote>
+              <p>
+                “如果说是用 Claude 或者是 Codex 来做我们 infrastructure 的
+                implementation，那么确实某种意义上来说是 RSI；但我们并没有训练 OpenAI
+                的模型，所以也不能说是完全的 RSI……我们之后也要训练 DeepSeek-level
+                的模型，但是能 running on device。等越来越接近 frontier 模型之后，我也会想做一些
+                in-house 比如 coding 的模型，至少先把我们自己的 infra optimize 快一点。”
+              </p>
+            </blockquote>
             <p>
-              聊到很火的 RSI（递归自我改进），于天舒的态度挺克制：平时用 Claude 或 Codex
-              来写自己的 infra
-              代码，某种意义上算沾边 RSI，但毕竟不是自家模型反哺自家。他们接下来的打算，是训出能跑在端侧的
-              DeepSeek 级别模型，等模型能力靠近前沿之后，再做内部 coding 模型，至少先用来优化自家
-              infra。
-            </p>
-            <p>
-              顺着这个点，我又翻了 Liquid AI 自己写的一篇工程记录（<a
+              Liquid AI 官方在 2026 年 8 月发过一篇很实在的工程记录（<a
                 href="https://www.liquid.ai/blog/agent-loops"
                 ><em>Designing Loops for Production-Grade Work</em></a
-              >）：他们让 Claude Opus 4.5 和 Codex 从零写一个单机跑万亿 token 的 Rust BPE
-              分词器训练引擎（<code>toktoktok</code>）。结果两个模型都在 30
-              分钟内写出了能过单元测试的玩具版，但一上真实语料全挂——跑到 1% 语料就
-              OOM、Parquet 编码静默出错、正则回溯退化成平方复杂度。最后 Claude Opus 4.5
-              能交付生产代码，靠的不是哪一次 zero-shot
-              写得多神，而是外面那套 Agent 篡改不了的真实数据和第三方校验循环，撞墙、看
-              profile、改完再跑，一轮轮收出来的。
+              >），正好印证了这种“准 RSI”的真实工作方式：他们让 Claude Opus 4.5 和 Codex
+              从零写一个单机跑万亿 token 的 Rust BPE 分词器训练引擎（<code>toktoktok</code>）。两个模型都在
+              30 分钟内写出了能过单元测试的玩具版，但一接真实生产语料全挂——跑到 1% 语料就
+              OOM、Parquet 多编码静默出错、正则回溯退化成平方复杂度。最后 Claude Opus 4.5
+              能收出生产代码，靠的不是哪次 zero-shot 写得多神，而是外面那套 Agent
+              篡改不了的真实语料与第三方校验循环，撞墙、看 profile、改完再跑，一轮轮磨出来的。
             </p>
             <p>
-              这也顺理成章地引出了整段访谈里我最有共鸣的部分。主持人问“AI 多久会取代 AI
-              从业者、最大的壁垒是什么”，于天舒估了四五年，但对圈里很流行的那句话——“只要任务是
-              verifiable（可验证）的，AI 很快就能取代人”——直接表示怀疑：
+              而整场访谈里最有意思的技术判断，出现在被问到“AI 多久会取代 AI
+              从业者、最大的壁垒是什么”时。他估了个 4–5 年的窗口，但对行业里很流行的说法——“只要任务是
+              verifiable（可验证）的，就很容易被 AI 取代”——直接提出了怀疑：
             </p>
             <blockquote>
               <p>
@@ -181,105 +189,86 @@
               </p>
             </blockquote>
             <p>
-              Jason Wei 的
+              Jason Wei 在
               <a href="https://www.jasonwei.net/"><em>Asymmetry of Verification</em></a
-              >（Verifier's Law）把“能不能验证”讲得很透，但于天舒补上了一个落到工程里绕不开的现实条件：<strong>可验证只是前提，验证要等多久，才决定了 RL 的闭环转不转得起来。</strong>
+              >（Verifier's Law）里讲的是“能不能验证”，于天舒补上了一个落到训练里绕不开的物理限制：<strong>可验证只是前提，验证要等多久，才决定了 RL 闭环转不转得起来。</strong>
             </p>
-            <p>这两年的几个代表性工作，几乎把这条边界画得很明白：</p>
+            <p>近两年的几个代表性工作，几乎把这条边界画得很清楚：</p>
             <ul>
               <li>
                 DeepMind 的 <strong>AlphaEvolve</strong>（<a
                   href="https://arxiv.org/abs/2506.13131"
                   >arXiv:2506.13131</a
-                >）在矩阵乘法、集群调度和底层 kernel
-                上效果很惊人，因为这些任务的程序验证几秒到几分钟就能出结果；
+                >）在矩阵乘法、集群调度和底层 kernel 上效果突出，因为程序验证几秒到几分钟就能出结果；
               </li>
               <li>
                 Karpathy 的 <code>autoresearch</code> 更干脆，直接把每次训练实验硬压到
-                <strong>5 分钟</strong>，用极短的验证周期换一夜跑上百轮的试错密度；
+                <strong>5 分钟</strong>，人为把验证延迟压缩到极致，换取一夜跑上百轮的试错密度；
               </li>
               <li>
                 反过来，METR 的 <strong>RE-Bench</strong>（<a
                   href="https://arxiv.org/abs/2411.15114"
                   >arXiv:2411.15114</a
                 >）拿 AI Agent 和人类 ML 专家做过对照：在 <strong>2 小时</strong>短预算下，前沿
-                Agent 得分能到人类专家的 4 倍左右；但一旦预算放到
-                <strong>8 小时以上</strong>，人类专家就反超了。
+                Agent 得分约是人类专家的 4 倍；可预算拉长到 <strong>8 小时以上</strong>，人类专家就反超了。
               </li>
             </ul>
             <p>
-              <strong>这里其实直接回到了我自己最关心的研究问题上。</strong
-              >现实世界里大量重要任务——不管是训一个大模型，还是开放世界里的未来事件预测——结果最终都是客观可验证的，但反馈延迟动辄几周甚至几个月（delayed
-              feedback）。靠现在动辄几万次 rollout 的 RL 样本效率，根本等不起。
+              换句话说，只要当前 RL 算法的样本效率还没发生质变，那些单次验证耗时数周甚至数月的长反馈任务，很难单靠暴力试错走出闭环。
             </p>
-            <p>要绕过或者压缩这层延迟，我觉得大体只有两个方向值得深挖：</p>
-            <ol>
-              <li>
-                <strong>别干等最终结果揭晓</strong
-                >。在漫长的等待过程里，环境其实一直在放出中间证据（pre-resolution
-                signals），怎么用这些时序上的中间信号来做信用分配、校准和纠错，是我们在
-                <a href="https://arxiv.org/abs/2604.15719">Milkyway</a> 里一直在试的路子；
-              </li>
-              <li>
-                <strong>把单次昂贵试错榨出更多信息</strong
-                >。既然不能靠暴力试错撞大运，就得把每次实验或任务里的经验先沉淀到可持久化的 Agent
-                harness（记忆、技能、工作流，见我维护的
-                <a href="https://github.com/Weichy9218/Awesome-Harness-Self-Evolving"
-                  >Awesome Harness Self-Evolving</a
-                >），再通过 on-policy 训练慢慢内化进模型权重，而不是每次换个任务又从零摸索。
-              </li>
-            </ol>
-          </section>
 
-          <section id="first-principles">
-            <h2>四、创业公司节奏，以及 AI 写代码时代的「第一性原理」</h2>
-            <p>
-              聊到大厂和创业公司的区别，于天舒说得特别干脆：“在大厂里得 convince 七八个 VP
-              才能做某个项目；在创业公司就是 I just do
-              it。”主持人顺势说这是好公司文化赋能了个人，他倒没顺着接，反而觉得：<strong>只要你是个用第一性原理想问题、又有热情的人，你是能反过来改变公司文化的。</strong>
-            </p>
-            <p>
-              关于招人，他提到团队目前依然很缺推理和 RL Infra 工程师，没有因为 AI
-              工具就把岗位砍掉，招人最看重的就是 <strong>First Principles Thinker</strong
-              >。他举的那个例子非常具体，拿来当面试题都很合适：
-            </p>
-            <blockquote>
+            <details class="note-tip">
+              <summary>Tip：展开看与我自己研究方向的几点呼应</summary>
               <p>
-                “比如我们要把模型的 inference MFU 提上去，他不能跟我说：‘我就 run 了一个
-                Claude，现在看多少 token/s，比原来快了多少’，就说任务完成了。不！我需要看到的是：首先，你现在跑的硬件是多少
-                TFLOPS/s；你的模型理论上一次 forward pass 是多少
-                TFLOPS；如果用满硬件的物理极限，应该处理多少
-                request/s；再看你现在和理论物理极限差了多少。”
+                于天舒讲多轮环境、评测和验证速度这几段，跟我在预测 Agent 和自演化方向上碰到的其实是同一类问题：
               </p>
-            </blockquote>
-            <p>
-              这其实就是系统优化里经典的 <strong>Roofline 思维</strong>（像 Horace He 的
-              <a href="https://horace.io/brrr_intro.html"
-                ><em>Making Deep Learning Go Brrrr From First Principles</em></a
-              >，以及 Google 的
-              <a href="https://jax-ml.github.io/scaling-book/"><em>How to Scale Your Model</em></a>
-              讲的都是同一套算账方法）。
-            </p>
-            <p>
-              用上 Claude Code 或 Codex 之后，这件事反而更有意思了。Coding Agent
-              特别擅长做局部优化——把一段慢代码改一改、提速 20%
-              很容易；但如果当前实现只跑到了芯片物理上限的 15%，提速 20% 之后也才
-              18%，依然离合理水平差得很远。<strong>AI 越容易帮你把代码写出来，知道「天花板到底在哪」、该局部修补还是该推倒重来的人，反而越值钱。</strong>
-            </p>
-            <p class="note-aside">
-              中间还有个挺有意思的小插曲：被问到四五年后 AI
-              从业者的出路，他很认真地先说了水电工创业，被主持人追问“机器人以后也会干水电工”之后，又改口说想做一家带点科技感的物理安保公司，还补了一句“真不是搞抽象，我真是这么想的”。挺坦诚，也挺好玩。
-            </p>
+              <ul>
+                <li>
+                  <strong>验证延迟（Delayed Feedback）</strong
+                  >：开放世界预测和大模型训练一样，结果最终可验证，但动辄要等几周、几个月。与其干等最终结果，不如挖掘等待期间不断冒出来的中间证据（pre-resolution
+                  signals）来做信用分配与纠偏（<a href="https://arxiv.org/abs/2604.15719">Milkyway</a
+                  >）；同时在真实异步环境里维护轨迹与评测口径（<a
+                    href="https://arxiv.org/abs/2604.26733"
+                    >FutureWorld</a
+                  >、<a href="https://arxiv.org/abs/2606.17029">DEEPRUBRIC</a>）。
+                </li>
+                <li>
+                  <strong>提高单次试错的信息利用率</strong>：既然长周期任务试错不起，就需要先把经验持久化沉淀到可演化的
+                  Agent harness（记忆、技能、工作流，见我们维护的
+                  <a href="https://github.com/zgcagi/Harness-RSI">Harness-RSI</a>），再逐步通过
+                  on-policy 训练内化进模型权重，而不是每次都从头盲搜。
+                </li>
+              </ul>
+            </details>
           </section>
 
-          <section id="closing">
-            <h2>写在最后</h2>
-            <p>
-              13 分钟的访谈听完，留下的印象反而很朴素：数据得自己盯着看，多轮 RL 得把沙盒和 GPU
-              闲置捋顺，RSI 绕不开验证速度，用 AI
-              写代码更得先算清硬件物理上限。不管是做端侧基础模型，还是做延迟反馈与自演化
-              Agent，拆到底面对的其实都是同一批绕不过去的基本问题。
-            </p>
+          <section class="note-chat" id="aside">
+            <h2>附：访谈里顺带聊到的商业与工程闲聊</h2>
+            <p>除核心技术之外，访谈后半段还聊了不少创业、商业和招人方面的实在话，简记几条：</p>
+            <ul>
+              <li>
+                <strong>用 AI 写代码时代的工程直觉（Roofline 算账）</strong
+                >：团队目前依然很缺推理和 RL Infra 工程师，招人最看重第一性原理。他举了个具体例子——优化推理
+                MFU 时，不能只跑一下 Claude 改改代码、汇报 <code>token/s</code> 比原来快了多少就交差，得先算清硬件峰值多少
+                TFLOPS/s、单次 forward 理论多少 TFLOPS、打满物理极限应跑多少
+                request/s，再看现状和物理上限差了多少（也就是经典的
+                <a href="https://horace.io/brrr_intro.html">Roofline 思维</a>）。
+              </li>
+              <li>
+                <strong>大厂 vs 创业公司</strong
+                >：“在大厂里得 convince 七八个 VP 才能做某个项目；在创业公司就是 I just do
+                it。”被夸公司文化赋能个人时，他反倒觉得，有热情、讲第一性原理的人是可以反过来改变公司文化的。
+              </li>
+              <li>
+                <strong>资本效率与护城河演化</strong>：相比靠重债务建数据中心的高融资 Neo
+                Lab，Liquid AI 刻意不背债、压低算力相对人力的开支比例，按可持续商业逻辑经营。面对巨头小模型（OpenAI
+                mini、Claude Haiku），他总结了一套三步走：短期靠更聪明的技术破局，趁技术还没被抄平赶紧转化为车企长约这类分发锁定，再把赚到的资本沉淀成中长期基建护城河。
+              </li>
+              <li>
+                <strong>关于四五年后的个人出路</strong>：被问到 AI
+                从业者以后做什么，他认真说了水电工创业；被追问机器人可能也会干水电工后，改口说想做一家带点科技感的物理安保公司——“真不是搞抽象，我真是这么想的”。
+              </li>
+            </ul>
           </section>
 
           <section class="note-refs" id="references">
@@ -331,15 +320,6 @@
                 Novikov et al. (Google DeepMind),
                 <em>AlphaEvolve: A coding agent for scientific and algorithmic discovery</em>
                 (<a href="https://arxiv.org/abs/2506.13131">arXiv:2506.13131</a>)
-              </li>
-              <li>
-                Horace He,
-                <a href="https://horace.io/brrr_intro.html"
-                  ><em>Making Deep Learning Go Brrrr From First Principles</em> ↗</a
-                >; Austin et al.,
-                <a href="https://jax-ml.github.io/scaling-book/"
-                  ><em>How to Scale Your Model</em> ↗</a
-                >
               </li>
             </ol>
           </section>
