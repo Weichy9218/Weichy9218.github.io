@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>Agent 长上下文训练机制剖析：Mask 机制、多轮 SFT 监督盲区与 ACC 轨迹编译 | Chuyang Wei</title>
+    <title>为什么多轮 Agent SFT 学不好长上下文 | Chuyang Wei</title>
     <meta
       name="description"
       content="从底层剖析 LLM 训练中的 Attention Mask 与 Label/Loss Mask 差异、多轮 Agent SFT 的损失权重失衡（Supervision Blind Spot），系统精读 ACC (Compiling Agent Trajectories for Long-Context Training) 的轨迹编译方法、MRCR/GraphWalks 完整实验、防泄漏检验、消融与 MoE 专家特化机制。"
@@ -16,7 +16,7 @@
     <meta property="og:type" content="article" />
     <meta
       property="og:title"
-      content="Agent 长上下文训练机制剖析：Mask 机制、多轮 SFT 监督盲区与 ACC 轨迹编译"
+      content="为什么多轮 Agent SFT 学不好长上下文"
     />
     <meta
       property="og:description"
@@ -59,18 +59,18 @@
       <main class="note-main" id="main">
         <article class="note-article">
           <header class="note-header">
-            <p class="eyebrow">READING &amp; MECHANISM / AGENT TRAINING &amp; LONG CONTEXT</p>
-            <h1>Agent 长上下文训练机制剖析：Mask 机制、多轮 SFT 监督盲区与 ACC 轨迹编译</h1>
+            <p class="eyebrow">AGENT TRAINING | LONG CONTEXT</p>
+            <h1>为什么多轮 Agent SFT 学不好长上下文</h1>
             <p class="note-meta">
-              2026-05-27 · 原笔记重构与深化（Su et al., USTC &amp; Shanghai AI Lab — 补充完整实验表格与机制拆解）
+              2026-05-27 | 拆解 Attention/Loss Mask、监督盲区与 ACC（Su et al., USTC &amp; Shanghai AI Lab）
             </p>
           </header>
 
           <p>
-            多轮工具交互 Agent 在解题时动辄产生几万到十几万 token 的轨迹，里面散落着网页正文、代码文件和数据库表片段。按直觉，直接拿这些长轨迹做标准 Agent SFT，模型应该自然越训越擅长长上下文推理——但实验事实恰恰相反：<strong>直接拿原始 Agent 轨迹做 SFT，甚至会让模型的长程依赖推理能力倒退</strong>。
+            多轮工具交互 Agent 在解题时动辄产生几万到十几万 token 的轨迹，里面散落着网页正文、代码文件和数据库表片段。按直觉，直接拿这些长轨迹做标准 Agent SFT，模型应该自然越训越擅长长上下文推理；但实验事实恰恰相反，<strong>直接拿原始 Agent 轨迹做 SFT，甚至会让模型的长程依赖推理能力倒退</strong>。
           </p>
           <p>
-            这篇笔记先从最基础也最容易被混为一谈的 <strong>Attention Mask 与 Label/Loss Mask 机制</strong>切入，量化拆解多轮 Agent SFT 的监督盲区，再完整精读 <strong>ACC（Agent Context Compilation）</strong>的方法设计、MRCR / GraphWalks 定量实验、消融与 MoE 机制分析，最后给出对方法归因边界的批判性评估。
+            这篇笔记先从容易混为一谈的 <strong>Attention Mask 与 Label/Loss Mask 机制</strong>切入，量化拆解多轮 Agent SFT 的监督盲区，再精读 <strong>ACC（Agent Context Compilation）</strong>的方法设计、MRCR / GraphWalks 定量实验、消融与 MoE 机制分析，最后给出对方法归因边界的保留意见。
           </p>
 
           <figure class="note-img-figure">
@@ -83,7 +83,7 @@
           </figure>
 
           <section id="masks-and-blindspot">
-            <h2>1. 基础机制：Attention Mask、Loss Mask 与多轮 SFT 的监督盲区</h2>
+            <h2>1. Attention Mask 与 Loss Mask：多轮 SFT 的监督权重如何被稀释？</h2>
             <p>
               对任意 Decoder-only 语言模型，标准自回归训练目标可以统一写为带掩码的交叉熵：
             </p>
@@ -145,15 +145,15 @@
             </p>
             $$\mathcal{L}_{\text{agent}} = -\sum_{t=1}^{k} \sum_{j \in \mathcal{I}_t} \log P_\theta(\text{token}_j \mid \mathcal{H}_{&lt;t}, \text{token}_{&lt;j}), \qquad \mathcal{I}_t = \begin{cases} r_t \cup a_t, &amp; t &lt; k \\ r_k \cup y, &amp; t = k \end{cases}$$
             <p>
-              问题并不在于「模型看不见 $o_t$」，而在于<strong>绝大部分有梯度的监督 token 被稀释在了中间步骤的动作模仿上</strong>。算一笔简单的账：假设一条轨迹经过 20 轮工具调用，每轮 assistant 输出 100 token 的思考与工具调用参数，最后总结输出 50 token 的最终答案——那么整条样本里有 <strong>2,000 个 token 在训练「当前状态下一步调什么工具」（local policy imitation）</strong>，只有 <strong>50 个 token（2.4%）在训练「把第 1、3、7 轮里散落的证据拼起来得出结论」（global evidence integration）</strong>。
+              问题并不在于「模型看不见 $o_t$」，而在于<strong>绝大部分有梯度的监督 token 被稀释在了中间步骤的动作模仿上</strong>。算一笔账：假设一条轨迹经过 20 轮工具调用，每轮 assistant 输出 100 token 的思考与工具调用参数，最后总结输出 50 token 的最终答案。整条样本里有 <strong>2,000 个 token 在训练「当前状态下一步调什么工具」（local policy imitation）</strong>，只有 <strong>50 个 token（2.4%）在训练「把第 1、3、7 轮里散落的证据拼起来得出结论」（global evidence integration）</strong>。
             </p>
             <p>
-              这就是论文指出的 <strong>Supervision Blind Spot（监督盲区）</strong>——也是 motivation 里最站得住脚的核心洞察。
+              这就是论文指出的 <strong>Supervision Blind Spot（监督盲区）</strong>，也是整篇论文动机里最站得住脚的核心观察。
             </p>
           </section>
 
           <section id="method">
-            <h2>2. ACC 方法论：把交互轨迹编译成静态长上下文 QA</h2>
+            <h2>2. ACC 如何把多轮工具轨迹编译成静态长上下文问答？</h2>
             <p>
               <strong>ACC（Agent Context Compilation）</strong>的解法非常直接：与其花重金人工标注长文档或启发式拼接伪长文本，不如直接复用 Agent 运行时天然产出的海量真实工具轨迹，<strong>把多轮交互轨迹离线「编译」成单轮静态长上下文问答样本 $(q_i, C_i) \to (r_i, y_i)$</strong>。
             </p>
@@ -184,15 +184,15 @@
                 <strong>纳入真实干扰项（Distractors）</strong>：除了保留 Agent 真正访问过的证据片段，还会刻意混入同一轨迹里出现过但未采纳的搜索结果或未打开的代码文件，迫使模型在数万 token 噪声中学会筛选与定位。
               </li>
               <li>
-                <strong>随机打乱片段顺序（Shuffling）</strong>：把所有证据与干扰项随机重排拼成 $C_i$。目的不是单纯增加难度，而是彻底堵死「顺着 Agent 探索的时间顺序直接抄最后几段」的顺序捷径，逼迫模型依靠语义匹配做跨段关联。
+                <strong>随机打乱片段顺序（Shuffling）</strong>：把所有证据与干扰项随机重排拼成 $C_i$。目的不是单纯增加难度，而是消除「顺着 Agent 探索的时间顺序直接抄最后几段」的顺序捷径，逼迫模型依靠语义匹配做跨段关联。
               </li>
               <li>
-                <strong>合成经验证的推理链 $r_i$</strong>：在几万 token 上下文里如果只监督最终几个词的答案（如 <code>Les Tzars</code>），监督信号依旧过于稀疏。作者使用 <strong>DeepSeek-V3.2-Thinking</strong> 基于 $(q_i, C_i)$ 生成候选推理过程与答案，仅保留最终答案严格匹配真实标签 $y_i$ 的样本。值得注意的是，不同领域的合成通过率差距悬殊：<strong>Search 接近 100%，SQL 约 50%，SWE 仅约 10%</strong>——复杂代码任务的推理链合成构成了实际扩展瓶颈。
+                <strong>合成经验证的推理链 $r_i$</strong>：在几万 token 上下文里如果只监督最终几个词的答案（如 <code>Les Tzars</code>），监督信号依旧过于稀疏。作者使用 <strong>DeepSeek-V3.2-Thinking</strong> 基于 $(q_i, C_i)$ 生成候选推理过程与答案，仅保留最终答案严格匹配真实标签 $y_i$ 的样本。不同领域的合成通过率差距明显：<strong>Search 接近 100%，SQL 约 50%，SWE 仅约 10%</strong>，复杂代码任务的推理链合成构成了实际扩展瓶颈。
               </li>
             </ol>
 
             <div class="note-callout">
-              <p class="note-callout-title">具体编译样例（Search Agent · Les Tzars）</p>
+              <p class="note-callout-title">具体编译样例（Search Agent | Les Tzars）</p>
               <p>
                 原始多轮轨迹中，Agent 分 3 轮搜索并依次访问了 <code>[Doc A]</code>（黑金属翻唱欧洲加曲）、<code>[Doc D]</code>（1994 广播现场 5 分钟版）、<code>[Doc G]</code>（1997 精选盘 Disc One 第三首），期间还夹杂了无关网页 <code>[Doc C]</code>。ACC 删掉所有中间搜索指令，把 <code>[Doc G, Doc C (distractor), Doc A, Doc D]</code> 乱序拼成单轮上下文 $C_i$，并要求模型直接输出跨文档定位推理链 $r_i$ 与最终答案 <code>Les Tzars</code>。
               </p>
@@ -200,7 +200,7 @@
           </section>
 
           <section id="experiments">
-            <h2>3. 完整实验结果、防泄漏检验与消融剖析</h2>
+            <h2>3. 实验验证：30B 追平 235B，且原始 Agent SFT 反而倒退</h2>
             <p>
               作者以 <strong>Qwen3-30B-A3B-Thinking</strong>（总参 30B、激活 3B 的 MoE 推理模型）为基座，使用标准 SFT 训练 4 个 epoch（序列长度 131,072、global batch size 16、AdamW、初始学习率 $1\times 10^{-5}$ 余弦退火至 $1\times 10^{-6}$、序列并行度 8）。主评测聚焦两个专门检验长程依赖建模的硬基准：
             </p>
@@ -433,10 +433,10 @@
             </p>
             <ol>
               <li>
-                <strong>实锤监督盲区</strong>：直接用原始 Search 轨迹做 Agent SFT，MRCR 暴跌 <strong>−8.03</strong>，GraphWalks 暴跌 <strong>−12.05</strong>——单纯把长轨迹塞进标准 SFT 不仅无益，反而伤害长程依赖建模。
+                <strong>验证监督盲区</strong>：直接用原始 Search 轨迹做 Agent SFT，MRCR 下降 <strong>8.03 分</strong>，GraphWalks 下降 <strong>12.05 分</strong>；单纯把长轨迹塞进标准 SFT 不仅无益，反而伤害长程依赖建模。
               </li>
               <li>
-                <strong>数据结构决定任务迁移方向</strong>：三类单源编译数据都能拉升 MRCR，但到了 GraphWalks 上，<strong>只有 SQL 提升（+5.58）</strong>，单用 Search 或 SWE 反而狂掉 −25.17 / −19.26！因为网页与代码是连续长段落，而 SQL 表格天然具备离散关系与外键连接结构，正好匹配图遍历推理；三者混合后彼此互补，双指标冲到全局最高。
+                <strong>数据结构决定任务迁移方向</strong>：三类单源编译数据都能拉升 MRCR，但到了 GraphWalks 上，<strong>只有 SQL 提升（+5.58）</strong>，单用 Search 或 SWE 反而下降 25.17 与 19.26 分。因为网页与代码是连续长段落，而 SQL 表格天然具备离散关系与外键连接结构，更匹配图遍历推理；三者混合后彼此互补，双指标达到全局最高。
               </li>
               <li>
                 <strong>干扰项的双向作用</strong>：去掉 Search / SWE 的 distractor 会让 MRCR 分别下降 3.34 和 3.81 分，证明干扰项对「抗噪精确定位」至关重要。
@@ -445,7 +445,7 @@
           </section>
 
           <section id="mechanism-and-critique">
-            <h2>4. 内部机制分析与批判性评估</h2>
+            <h2>4. 内部机制与归因边界：注意力重构、MoE 特化与未解耦的蒸馏增益</h2>
 
             <h3>4.1 Attention 重构与 MoE 专家特化</h3>
             <p>

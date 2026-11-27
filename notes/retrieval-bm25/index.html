@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>信息检索经典方案推导：从概率排序原理（BIM）到 BM25 与现代混合检索 | Chuyang Wei</title>
+    <title>BM25 的概率由来：为什么词频必须饱和 | Chuyang Wei</title>
     <meta
       name="description"
       content="从第一性原理完整推导信息检索基石 BM25：概率排序原理（PRP）、贝叶斯后验赔率与二元独立模型（BIM）、IDF 及其平滑变体、隐变量 Eliteness 与 2-Poisson 混合模型的词频饱和证明、文档长度归一化与完整 BM25 公式，并串联现代 LLM 多阶段混合检索架构。"
@@ -16,7 +16,7 @@
     <meta property="og:type" content="article" />
     <meta
       property="og:title"
-      content="信息检索经典方案推导：从概率排序原理（BIM）到 BM25 与现代混合检索"
+      content="BM25 的概率由来：为什么词频必须饱和"
     />
     <meta
       property="og:description"
@@ -59,22 +59,22 @@
       <main class="note-main" id="main">
         <article class="note-article">
           <header class="note-header">
-            <p class="eyebrow">FOUNDATIONS / INFORMATION RETRIEVAL &amp; RAG</p>
-            <h1>信息检索经典方案推导：从概率排序原理（BIM）到 BM25 与现代混合检索</h1>
+            <p class="eyebrow">INFORMATION RETRIEVAL | RAG FOUNDATIONS</p>
+            <h1>BM25 的概率由来：为什么词频必须饱和</h1>
             <p class="note-meta">
-              2026-01-23 · 原笔记整理与深化（完整保留零跳步概率推导，补充多阶段检索架构与超参分析）
+              2026-01-23 | 从概率排序原理、BIM、隐变量 Eliteness 到现代多阶段混合检索
             </p>
           </header>
 
           <p>
-            哪怕已经进入长上下文和大模型 Agent 时代，只要面对超大规模语料库（远超单次上下文窗口限制），<strong>检索（Retrieval）</strong>依然是不可替代的前置筛选层。而在几乎所有工业级混合检索系统中，三十年前提出的 <strong>BM25</strong> 至今仍是与稠密向量检索平起平坐的核心召回基线。
+            哪怕进入长上下文和大模型 Agent 时代，只要面对远超单次窗口的语料库，<strong>检索（Retrieval）</strong>依然是不可替代的前置筛选层。而在工业级混合检索系统中，三十年前提出的 <strong>BM25</strong> 至今仍是与稠密向量检索并列的核心召回基线。
           </p>
           <p>
-            很多资料只会直接甩出 BM25 的最终公式，却不解释为什么 IDF 长成对数赔率、为什么词频项要带饱和分式 $\frac{(k_1+1)tf}{k_1+tf}$、以及长度归一化 $B$ 是怎么来的。这篇笔记从最底层的<strong>概率排序原理</strong>出发，一步步无跳步推完 <strong>PRP → 贝叶斯赔率 → BIM → IDF → 隐变量 Eliteness（词频饱和）→ BM25</strong>，再把它放回现代 LLM 多阶段检索管线里做定位。
+            很多资料直接给出 BM25 公式，却不解释为什么 IDF 长成对数赔率、为什么词频项要带饱和分式 $\frac{(k_1+1)tf}{k_1+tf}$、以及长度归一化 $B$ 从何而来。这篇笔记从最底层的<strong>概率排序原理</strong>出发，一步步无跳步推完 <strong>PRP → 贝叶斯赔率 → BIM → IDF → 隐变量 Eliteness（词频饱和）→ BM25</strong>，再把它放回现代 LLM 多阶段检索管线里做定位。
           </p>
 
           <section id="pipeline">
-            <h2>1. 检索范式演进与现代工业级管线</h2>
+            <h2>1. 现代 LLM 检索漏斗里，BM25 为什么依然不可替代？</h2>
             <p>
               信息检索的技术演进大致经历了四代：从早期<strong>词法检索（Lexical Retrieval）</strong>追求字面精确匹配（不理解同义语义，但对专有名词、型号、代码符号的 Precision 极高），到深度学习时代的<strong>稠密语义检索（Dense Retrieval）</strong>靠双塔向量提升 Recall，再到工程上几乎标配的<strong>混合检索（Hybrid Retrieval：BM25 + Dense）</strong>，最后演变为 LLM 时代的<strong>多阶段漏斗（Multi-stage Retrieval）</strong>。
             </p>
@@ -93,21 +93,21 @@
                 <line x1="94" y1="71" x2="122" y2="71" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ret-arrow)" />
 
                 <rect x="126" y="34" width="144" height="74" rx="6" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.6" />
-                <text x="198" y="57" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ink)">Stage 1 · 混合召回</text>
+                <text x="198" y="57" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ink)">Stage 1 | 混合召回</text>
                 <text x="198" y="75" text-anchor="middle" font-size="10.5" fill="var(--muted)">BM25 + Dense (RRF)</text>
-                <text x="198" y="93" text-anchor="middle" font-size="10" fill="var(--accent)">Top 1,000 · 毫秒级</text>
+                <text x="198" y="93" text-anchor="middle" font-size="10" fill="var(--accent)">Top 1,000 / 毫秒级</text>
 
                 <line x1="270" y1="71" x2="298" y2="71" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ret-arrow)" />
 
                 <rect x="302" y="34" width="140" height="74" rx="6" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5" />
-                <text x="372" y="57" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ink)">Stage 2 · 交叉重排</text>
+                <text x="372" y="57" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ink)">Stage 2 | 交叉重排</text>
                 <text x="372" y="75" text-anchor="middle" font-size="10.5" fill="var(--muted)">Cross-Encoder Rerank</text>
-                <text x="372" y="93" text-anchor="middle" font-size="10" fill="var(--muted)">Top 100 · 全交互打分</text>
+                <text x="372" y="93" text-anchor="middle" font-size="10" fill="var(--muted)">Top 100 / 全交互打分</text>
 
                 <line x1="442" y1="71" x2="470" y2="71" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ret-arrow)" />
 
                 <rect x="474" y="34" width="114" height="74" rx="6" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5" />
-                <text x="531" y="57" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ink)">Stage 3 · 精筛</text>
+                <text x="531" y="57" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ink)">Stage 3 | 精筛</text>
                 <text x="531" y="75" text-anchor="middle" font-size="10.5" fill="var(--muted)">LLM Rerank / Filter</text>
                 <text x="531" y="93" text-anchor="middle" font-size="10" fill="var(--muted)">Top 5 ~ 10</text>
 
@@ -118,7 +118,7 @@
                 <text x="643" y="84" text-anchor="middle" font-size="10" fill="var(--muted)">生成</text>
 
                 <text x="340" y="138" text-anchor="middle" font-size="10.5" fill="var(--muted)">
-                  计算量逐级上升、候选集逐级收敛：底层召回决定天花板（Recall），上层重排决定信噪比（Precision）
+                  计算量逐级上升、候选集逐级收敛：底层召回决定 Recall 上限，上层重排决定 Precision 信噪比
                 </text>
               </svg>
               <figcaption>图 1：现代 LLM 检索系统的典型多阶段漏斗。BM25 处于最外层的高吞吐召回位置，与稠密检索互补。</figcaption>
@@ -130,7 +130,7 @@
           </section>
 
           <section id="bim">
-            <h2>2. 概率排序原理与二元独立模型（BIM）</h2>
+            <h2>2. 从概率排序原理到 BIM：排序打分为什么是各词贡献之和？</h2>
 
             <h3>2.1 概率排序原理与后验赔率</h3>
             <p>
@@ -178,7 +178,7 @@
           </section>
 
           <section id="idf">
-            <h2>3. 从 $c_i$ 到 IDF 及其工程平滑变体</h2>
+            <h2>3. 无标注场景下，词项证据强度如何退化为 IDF？</h2>
             <p>
               真实无监督检索里，系统并不知道当前查询对应的相关文档集合，因而无法估计 $p_i$。Robertson &amp; Spärck-Jones 的经典做法是令先验无偏向：$p_i = 0.5$，此时 $\log\frac{p_i}{1-p_i} = \log 1 = 0$，证据强度退化为只依赖不相关文档中的稀有度：
             </p>
@@ -202,7 +202,7 @@
           </section>
 
           <section id="eliteness-bm25">
-            <h2>4. 引入词频与隐变量 Eliteness：推出词频饱和与 BM25</h2>
+            <h2>4. 引入隐变量 Eliteness：为什么词频必须饱和，以及 BM25 完整公式</h2>
             <p>
               BIM 的局限在于只看二值「出不出现」（$x_i = \mathbf{1}[tf &gt; 0]$），无法区分一篇文档里「只提了 1 次」和「反复讨论了 10 次」。现在把观测变量升级为整数词频 $TF_t \in \{0, 1, 2, \dots\}$，类比 BIM，每个词的词频证据强度同样写成对数似然比：
             </p>
@@ -266,7 +266,7 @@
           </section>
 
           <section id="modern-comparison">
-            <h2>5. 放回现代 RAG 与 Agent 检索系统看 BM25</h2>
+            <h2>5. 放回现代 RAG 与 Agent 系统：词法、稠密与交叉重排如何配合？</h2>
             <p>
               理解了 BM25 的数学根基后，就能一眼看清它与神经检索各自的能力边界，以及为什么工业界几乎都采用 <strong>Hybrid（BM25 + Dense）+ Cross-Encoder Rerank</strong> 的组合：
             </p>

@@ -51,10 +51,10 @@
       <main class="note-main" id="main">
         <article class="note-article">
           <header class="note-header">
-            <p class="eyebrow">NOTE · 2026-11-26</p>
+            <p class="eyebrow">INTERVIEW NOTE | 2026-11-26</p>
             <h1>验证速度决定迭代上限</h1>
             <p class="note-meta">
-              Liquid AI 于天舒访谈笔记 · Chuyang Wei · RSI / Agentic RL / Data Scaling
+              Liquid AI 于天舒访谈笔记 | RSI / Agentic RL / Data Scaling
             </p>
           </header>
 
@@ -75,7 +75,7 @@
           <p>往下聊到训练、RL、评测和 RSI 时，他讲的几个技术判断很实在，下面结合原话和少量直接相关的文献记下来。</p>
 
           <section id="data-scaling">
-            <h2>一、Data Scaling：模型的问题，最后大多还是数据问题</h2>
+            <h2>1. 模型出问题，最后大多还是 Data Scaling 和数据体感问题</h2>
             <p>
               被问到 Pre-training、Test-time、RL 几种 Scaling 哪个最重要，于天舒没有犹豫，直接选了
               <strong>Data Scaling</strong>：
@@ -93,7 +93,7 @@
               <li>
                 <strong>数据目前依然是重人力活，Agent 替不了人的「data sense」</strong
                 >。他的原话很直白：“你即使有智能体，智能体它其实没有太好的 data sense。很多时候就得用
-                human eye 去 vibe check 这个 data 到底可能会有什么问题，然后看损失曲线——曲线不太对，得判断到底是
+                human eye 去 vibe check 这个 data 到底可能会有什么问题，然后看损失曲线，曲线不太对，得判断到底是
                 data 有问题，还是 infra 里面有点 bug。”（他在 Redpanda <em>Hello, Agent!</em>
                 播客里也提过，训练里最难排查的往往不是直接报错崩溃，而是浮点舍入漂移、微调数据分布过于集中导致的能力坍缩这类静默问题。）
               </li>
@@ -114,7 +114,7 @@
           </section>
 
           <section id="multi-turn-rl">
-            <h2>二、多轮 Agent RL 与 Benchmark：真正卡住迭代的是工程周转</h2>
+            <h2>2. 多轮 Agent RL 与 Benchmark：真正卡住迭代的是工程周转</h2>
             <p>
               聊到最近很火的造环境（RL environment），于天舒直接指出了单轮和多轮的工程分水岭：
             </p>
@@ -128,7 +128,7 @@
             <p>
               单轮数学或代码任务里，rollout 基本是纯 GPU 推理；一旦进入多轮 Agent
               交互，每条轨迹都要反复经历「模型生成 → CPU 沙盒执行命令/测试 →
-              等待结果回传」。如果沿用同步批处理，昂贵的 GPU 集群只能干等批次里最慢的那个长尾沙盒（straggler），利用率会迅速塌方。这两年从
+              等待结果回传」。如果沿用同步批处理，昂贵的 GPU 集群只能干等批次里最慢的那个长尾沙盒（straggler），利用率会迅速骤降。这两年从
               <strong>veRL</strong>（<a href="https://arxiv.org/abs/2409.19256">HybridFlow</a
               >）扩展出的异步 server rollout，到 <strong>AReaL</strong>（<a
                 href="https://arxiv.org/abs/2505.24298"
@@ -155,7 +155,7 @@
           </section>
 
           <section id="rsi-verification-speed">
-            <h2>三、RSI 的现实坐标，以及比「可验证」更卡脖子的「验证速度」</h2>
+            <h2>3. 可验证只是前提，验证速度才决定 RSI 能不能转起来</h2>
             <p>关于硅谷热炒的 RSI（递归自我改进），于天舒先讲了现实，再讲了目标：</p>
             <blockquote>
               <p>
@@ -172,15 +172,15 @@
                 ><em>Designing Loops for Production-Grade Work</em></a
               >），正好印证了这种“准 RSI”的真实工作方式：他们让 Claude Opus 4.5 和 Codex
               从零写一个单机跑万亿 token 的 Rust BPE 分词器训练引擎（<code>toktoktok</code>）。两个模型都在
-              30 分钟内写出了能过单元测试的玩具版，但一接真实生产语料全挂——跑到 1% 语料就
+              30 分钟内写出了能过单元测试的玩具版，但一接真实生产语料全部失败：跑到 1% 语料就
               OOM、Parquet 多编码静默出错、正则回溯退化成平方复杂度。最后 Claude Opus 4.5
               能收出生产代码，靠的不是哪次 zero-shot 写得多神，而是外面那套 Agent
               篡改不了的真实语料与第三方校验循环，撞墙、看 profile、改完再跑，一轮轮磨出来的。
             </p>
             <p>
               而整场访谈里最有意思的技术判断，出现在被问到“AI 多久会取代 AI
-              从业者、最大的壁垒是什么”时。他估了个 4–5 年的窗口，但对行业里很流行的说法——“只要任务是
-              verifiable（可验证）的，就很容易被 AI 取代”——直接提出了怀疑：
+              从业者、最大的壁垒是什么”时。他估了个 4–5 年的窗口，但对行业里很流行的说法（“只要任务是
+              verifiable 的，就很容易被 AI 取代”）直接提出了怀疑：
             </p>
             <blockquote>
               <p>
@@ -192,7 +192,7 @@
             <p>
               Jason Wei 在
               <a href="https://www.jasonwei.net/"><em>Asymmetry of Verification</em></a
-              >（Verifier's Law）里讲的是“能不能验证”，于天舒补上了一个落到训练里绕不开的物理限制：<strong>可验证只是前提，验证要等多久，才决定了 RL 闭环转不转得起来。</strong>
+              >（Verifier's Law）里讲的是“能不能验证”，于天舒补上了一个落到训练里绕不开的物理限制：<strong>可验证只是前提，验证要等多久，才决定了 RL 迭代循环转不转得起来。</strong>
             </p>
             <p>近两年的几个代表性工作，几乎把这条边界画得很清楚：</p>
             <ul>
@@ -204,7 +204,7 @@
               </li>
               <li>
                 Karpathy 的 <code>autoresearch</code> 更干脆，直接把每次训练实验硬压到
-                <strong>5 分钟</strong>，人为把验证延迟压缩到极致，换取一夜跑上百轮的试错密度；
+                <strong>5 分钟</strong>，人为把验证延迟压到极低，换取一夜跑上百轮的试错密度；
               </li>
               <li>
                 反过来，METR 的 <strong>RE-Bench</strong>（<a
@@ -215,7 +215,7 @@
               </li>
             </ul>
             <p>
-              换句话说，只要当前 RL 算法的样本效率还没发生质变，那些单次验证耗时数周甚至数月的长反馈任务，很难单靠暴力试错走出闭环。
+              换句话说，只要当前 RL 算法的样本效率还没发生质变，那些单次验证耗时数周甚至数月的长反馈任务，很难单靠暴力试错跑通自我迭代。
             </p>
 
             <details class="note-tip">
@@ -227,7 +227,7 @@
                 <li>
                   <strong>验证延迟（Delayed Feedback）</strong
                   >：开放世界预测和大模型训练一样，结果最终可验证，但动辄要等几周、几个月。与其干等最终结果，不如挖掘等待期间不断冒出来的中间证据（pre-resolution
-                  signals）来做信用分配与纠偏（<a href="https://arxiv.org/abs/2604.15719">Milkyway</a
+                  signals）来做信用分配与在线修正（<a href="https://arxiv.org/abs/2604.15719">Milkyway</a
                   >）；同时在真实异步环境里维护轨迹与评测口径（<a
                     href="https://arxiv.org/abs/2604.26733"
                     >FutureWorld</a
@@ -244,12 +244,12 @@
           </section>
 
           <section class="note-chat" id="aside">
-            <h2>附：访谈里顺带聊到的商业与工程闲聊</h2>
+            <h2>附：访谈里聊到的工程直觉与商业判断</h2>
             <p>除核心技术之外，访谈后半段还聊了不少创业、商业和招人方面的实在话，简记几条：</p>
             <ul>
               <li>
                 <strong>用 AI 写代码时代的工程直觉（Roofline 算账）</strong
-                >：团队目前依然很缺推理和 RL Infra 工程师，招人最看重第一性原理。他举了个具体例子——优化推理
+                >：团队目前依然很缺推理和 RL Infra 工程师，招人最看重第一性原理。他举了个具体例子：优化推理
                 MFU 时，不能只跑一下 Claude 改改代码、汇报 <code>token/s</code> 比原来快了多少就交差，得先算清硬件峰值多少
                 TFLOPS/s、单次 forward 理论多少 TFLOPS、打满物理极限应跑多少
                 request/s，再看现状和物理上限差了多少（也就是经典的
@@ -258,16 +258,16 @@
               <li>
                 <strong>大厂 vs 创业公司</strong
                 >：“在大厂里得 convince 七八个 VP 才能做某个项目；在创业公司就是 I just do
-                it。”被夸公司文化赋能个人时，他反倒觉得，有热情、讲第一性原理的人是可以反过来改变公司文化的。
+                it。”被问到公司文化对个人的支撑时，他反倒觉得，有热情、讲第一性原理的人是可以反过来改变公司文化的。
               </li>
               <li>
-                <strong>资本效率与护城河演化</strong>：相比靠重债务建数据中心的高融资 Neo
+                <strong>资本效率与壁垒演化</strong>：相比靠重债务建数据中心的高融资 Neo
                 Lab，Liquid AI 刻意不背债、压低算力相对人力的开支比例，按可持续商业逻辑经营。面对巨头小模型（OpenAI
-                mini、Claude Haiku），他总结了一套三步走：短期靠更聪明的技术破局，趁技术还没被抄平赶紧转化为车企长约这类分发锁定，再把赚到的资本沉淀成中长期基建护城河。
+                mini、Claude Haiku），他总结了一套三步走：短期靠更聪明的技术破局，趁技术还没被追平赶紧转化为车企长约这类分发锁定，再把赚到的资本沉淀成中长期基建壁垒。
               </li>
               <li>
                 <strong>关于四五年后的个人出路</strong>：被问到 AI
-                从业者以后做什么，他认真说了水电工创业；被追问机器人可能也会干水电工后，改口说想做一家带点科技感的物理安保公司——“真不是搞抽象，我真是这么想的”。
+                从业者以后做什么，他认真说了水电工创业；被追问机器人可能也会干水电工后，改口说想做一家带点科技感的物理安保公司（“真不是搞抽象，我真是这么想的”）。
               </li>
             </ul>
           </section>

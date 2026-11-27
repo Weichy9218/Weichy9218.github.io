@@ -4,14 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>MCP 协议深度笔记：架构机制、安全边界与 Agent 工程取舍 | Chuyang Wei</title>
+    <title>MCP 统一了工具接口，但把上下文账单转给了 Agent | Chuyang Wei</title>
     <meta
       name="description"
       content="深入拆解 Model Context Protocol (MCP)：从 M×N 到 M+N 的协议动机、Host–Client–Server 与 stdio / Streamable HTTP 传输层、三大原语与双向能力、安全威胁模型，以及多工具上下文膨胀下的工程结论。"
     />
     <link rel="canonical" href="https://weichy9218.github.io/notes/mcp/" />
     <meta property="og:type" content="article" />
-    <meta property="og:title" content="MCP 协议深度笔记：架构机制、安全边界与 Agent 工程取舍" />
+    <meta property="og:title" content="MCP 统一了工具接口，但把上下文账单转给了 Agent" />
     <meta
       property="og:description"
       content="系统拆解 MCP 协议架构、JSON-RPC 生命周期、安全攻击面，以及 MCP 与 CLI/按需加载的工程权衡。"
@@ -46,20 +46,20 @@
       <main class="note-main" id="main">
         <article class="note-article">
           <header class="note-header">
-            <p class="eyebrow">SYSTEMS NOTE · 2025-07-01</p>
-            <h1>MCP 协议深度笔记：架构机制、安全边界与 Agent 工程取舍</h1>
-            <p class="note-meta">Chuyang Wei · Agent Infrastructure / Protocol / Security</p>
+            <p class="eyebrow">SYSTEMS NOTE | 2025-07-01</p>
+            <h1>MCP 统一了工具接口，但把上下文账单转给了 Agent</h1>
+            <p class="note-meta">Agent Infrastructure / Protocol / Security</p>
           </header>
 
           <p>
             <strong>MCP（Model Context Protocol）</strong>是由 Anthropic 于 2024 年底开源的上下文与工具接入协议。在 Agent 工具生态爆发前，每家
             AI 应用（IDE、聊天客户端、工作流引擎）接入每个外部系统（GitHub、PostgreSQL、Slack、本地文件）都要手写一套私有适配层，集成复杂度呈
             <code>M × N</code> 增长。MCP 借鉴了编程语言界 <strong>LSP（Language Server Protocol）</strong>的思路，通过统一应用与外部能力的通信契约，把复杂度降到
-            <code>M + N</code>。
+            <code>M + N</code>。但它只解决连接标准化，并不免费消除多工具接入后的安全面扩大和上下文开销。
           </p>
 
           <section id="layers">
-            <h2>一、层级定位：Function Calling、MCP 与 Agent 的严格边界</h2>
+            <h2>1. 先划清边界：Function Calling、MCP 与 Agent 各自负责哪一层？</h2>
             <p>
               这三者常在讨论中被混为一谈，实际上处于完全不同的抽象层：
             </p>
@@ -98,7 +98,7 @@
           </section>
 
           <section id="architecture">
-            <h2>二、三层架构与传输层机制（stdio vs. Streamable HTTP）</h2>
+            <h2>2. 协议架构：Host / Client / Server 与 stdio / Streamable HTTP 如何选？</h2>
             <p>
               MCP 采用 <strong>Host – Client – Server</strong> 三层解耦，消息格式统一采用
               <strong>JSON-RPC 2.0</strong>（支持 Request、Response、Notification 三类帧）：
@@ -113,15 +113,15 @@
                 </defs>
                 <rect x="16" y="16" width="244" height="196" rx="6" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5" />
                 <text x="32" y="40" fill="var(--ink)" font-size="13" font-weight="600">Host（AI 应用 / IDE / Agent Runtime）</text>
-                <text x="32" y="58" fill="var(--muted)" font-size="10.5">上下文聚合 · 权限审批 · 隔离多个 Server</text>
+                <text x="32" y="58" fill="var(--muted)" font-size="10.5">上下文聚合 | 权限审批 | 隔离多个 Server</text>
 
                 <rect x="34" y="76" width="208" height="52" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1.2" />
                 <text x="48" y="98" fill="var(--ink)" font-size="12" font-weight="600">MCP Client #1</text>
-                <text x="48" y="116" fill="var(--muted)" font-size="10.5">1:1 状态会话 · 能力协商 · 路由</text>
+                <text x="48" y="116" fill="var(--muted)" font-size="10.5">1:1 状态会话 | 能力协商 | 路由</text>
 
                 <rect x="34" y="142" width="208" height="52" rx="4" fill="var(--panel)" stroke="var(--line)" stroke-width="1.2" />
                 <text x="48" y="164" fill="var(--ink)" font-size="12" font-weight="600">MCP Client #2</text>
-                <text x="48" y="182" fill="var(--muted)" font-size="10.5">1:1 状态会话 · 故障与权限隔离</text>
+                <text x="48" y="182" fill="var(--muted)" font-size="10.5">1:1 状态会话 | 故障与权限隔离</text>
 
                 <line x1="246" y1="102" x2="390" y2="102" stroke="var(--accent)" stroke-width="1.5" marker-start="url(#mcp-arrow)" marker-end="url(#mcp-arrow)" />
                 <text x="318" y="92" text-anchor="middle" fill="var(--muted)" font-size="10.5">JSON-RPC 2.0 / stdio</text>
@@ -166,7 +166,7 @@
           </section>
 
           <section id="primitives">
-            <h2>三、核心原语、双向能力与协议生命周期</h2>
+            <h2>3. 三大原语与双向能力：一次完整会话在传输层发生了什么？</h2>
             <p>
               MCP 协议里最有设计感的地方，是按<strong>控制权归属</strong>区分了三类正向原语，并提供了两类反向原语：
             </p>
@@ -247,9 +247,9 @@
           </section>
 
           <section id="security">
-            <h2>四、安全威胁模型与真实攻击面</h2>
+            <h2>4. 接入外部代码后的真实攻击面：四类安全风险与鉴权边界</h2>
             <p>
-              MCP 把大量外部代码和不可信数据直接接进 LLM 的动作闭环，带来了传统 REST API 中不常见的四类安全风险：
+              MCP 把大量外部代码和不可信数据直接接进 LLM 的动作执行链路，带来了传统 REST API 中不常见的四类安全风险：
             </p>
             <ol>
               <li>
@@ -274,7 +274,7 @@
           </section>
 
           <section id="tradeoffs">
-            <h2>五、Agent 系统里的工程取舍与结论</h2>
+            <h2>5. 工程现实：当工具一多，MCP 的上下文膨胀怎么解？</h2>
             <p>在真实多步 Agent 工程里落地 MCP 时，有三个非常关键的实测结论：</p>
             <ol>
               <li>

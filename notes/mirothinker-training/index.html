@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>用交互深度换参数量：MiroThinker 三阶段后训练拆解 | Chuyang Wei</title>
+    <meta
+      name="description"
+      content="拆解 MiroThinker v1.0 的长程工具交互训练链路：Recency 上下文管理与 MiroVerse 数据结构、Assistant-only SFT 掩码、带辅助 SFT 损失的 DPO 偏好对齐、解决长尾拖累的流式异步 GRPO 与轨迹过滤，以及 8 项搜索与研究基准定量结果。"
+    />
+    <link
+      rel="canonical"
+      href="https://weichy9218.github.io/notes/mirothinker-training/"
+    />
+    <meta property="og:type" content="article" />
+    <meta
+      property="og:title"
+      content="用交互深度换参数量：MiroThinker 三阶段后训练拆解"
+    />
+    <meta
+      property="og:description"
+      content="30B 模型如何通过 256K 上下文、Recency 观察截断和 SFT / DPO / 流式 GRPO 三阶段训练，在长链路调研任务上追平更大参数闭源模型。"
+    />
+    <meta
+      property="og:url"
+      content="https://weichy9218.github.io/notes/mirothinker-training/"
+    />
+    <link rel="icon" href="../../assets/profile/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../../assets/profile/fonts.css" />
+    <link rel="stylesheet" href="../../assets/profile/site.css" />
+    <link rel="stylesheet" href="../../assets/katex/katex.min.css" />
+    <script src="../../assets/profile/site.js" defer></script>
+    <script src="../../assets/katex/katex.min.js" defer></script>
+    <script src="../../assets/katex/auto-render.min.js" defer></script>
+    <script src="../../assets/katex/init.js" defer></script>
+  </head>
+  <body>
+    <div class="page">
+      <a class="skip-link" href="#main">Skip to content</a>
+      <header class="site-header">
+        <a class="wordmark" href="../../">CW<span> / Notes</span></a>
+        <nav aria-label="Main navigation">
+          <a href="../../">Home</a
+          ><a href="../" class="nav-active" aria-current="page">Notes</a
+          ><a href="../../cv/">CV</a>
+        </nav>
+        <button
+          class="theme-button"
+          type="button"
+          aria-label="Use dark theme"
+          aria-pressed="false"
+          hidden
+        >
+          <span aria-hidden="true">◐</span>
+        </button>
+      </header>
+
+      <main class="note-main" id="main">
+        <article class="note-article">
+          <header class="note-header">
+            <p class="eyebrow">AGENT POST-TRAINING | SFT, DPO &amp; STREAMING GRPO</p>
+            <h1>用交互深度换参数量：MiroThinker 三阶段后训练拆解</h1>
+            <p class="note-meta">
+              2026-01-17 | 基于 MiroThinker v1.0 技术报告、MiroVerse-v0.1 数据与 MiroTrain 源码整理
+            </p>
+          </header>
+
+          <p>
+            在 GAIA、BrowseComp、Humanity's Last Exam（HLE）这类深度研究基准上，瓶颈往往不在模型参数里背住了多少冷门事实，而在<strong>能否在几百轮工具调用中持续获取有效证据、避免死循环并稳定收敛</strong>。MiroThinker v1.0 给出了一条清晰的路线：把有效算力从单纯堆参数和封闭长思考，转移到<strong>交互深度扩展（Interactive Scaling）</strong>上。
+          </p>
+          <p>
+            本文按数据、三阶段训练目标和系统工程拆解 MiroThinker 的完整后训练链路：先看它如何靠 Recency 截断与 MiroVerse 构造长轨迹，再依次推导 SFT 的掩码机制、DPO 加辅助 SFT 的稳定性设计、以及 Agentic GRPO 打破长尾拖累的流式异步 rollout，最后结合 8 项基准数据讨论它的优势与在开放预测任务上的边界。
+          </p>
+
+          <section id="interactive-scaling">
+            <h2>1. 为什么 30B 模型能靠 600 轮交互追平闭源大模型？</h2>
+            <p>
+              纯推理模型依靠 test-time 内部长思考（Chain-of-Thought）解题，但封闭思考缺乏外部验证，在需要查证实时或多跳事实的任务里容易越想越偏。MiroThinker（基于 Qwen2.5 与 Qwen3-30B-A3B / 72B 初始化）支持 <strong>256K 上下文</strong>和单任务最多 <strong>600 轮工具交互</strong>，把核心赌注押在两项基础设计上：
+            </p>
+            <ul>
+              <li>
+                <strong>Recency-based Context Retention（近邻观察保留）</strong>：在 256K 窗口内跑几百轮搜索，如果把历史网页正文全留着，上下文很快爆掉。MiroThinker 选择<strong>保留完整的历史思考与动作序列（Thought + Action）</strong>以追踪决策脉络，但只保留最近 $K$ 轮（评测配置 $K=5$）的工具返回（Observation），更早的网页原文直接截断掩蔽。同时 <code>scrape_and_extract_info</code> 内部会用轻量模型（如 Qwen3-14B）做条件抽取压缩，只把相关证据片段送回主循环。
+              </li>
+              <li>
+                <strong>MultiDocQA 与 MiroVerse-v0.1 轨迹数据</strong>：先从高互链语料（Wikipedia、Common Crawl 等）沿超链接构图抽取跨文档事实，再通过约束遮蔽生成单文档无法解答的多跳问答；随后结合 12 个开源多跳数据集（MuSiQue、HotpotQA、WebWalkerQA、MegaScience、TaskCraft 等），由 GPT-OSS、DeepSeek-V3.1 等多款前沿模型同时走 Function Calling 与 MCP 两条协议合成完整执行轨迹。开源的 <strong>MiroVerse-v0.1</strong> 包含 <strong>147K+ 条样本、1.9B+ tokens、602K+ 次工具交互</strong>。
+              </li>
+            </ul>
+
+            <figure class="note-img-figure">
+              <img
+                src="../../assets/notes/mirothinker/miroverse-datasets.png"
+                alt="MiroVerse-v0.1 开源多跳问答与工具交互轨迹数据集组成列表"
+                loading="lazy"
+              />
+              <figcaption>图 1：MiroVerse-v0.1 在 HuggingFace 开源的各子集组成，覆盖多跳检索、科学推理、表格问答与网页浏览任务。</figcaption>
+            </figure>
+
+            <h3>1.1 训练样本的角色划分与末尾 Meta 格式化指令</h3>
+            <p>
+              观察 MiroVerse 的原始 JSON 样本，整条多轮工具交互被编码成标准的 <code>system / user / assistant</code> 对话序列：
+            </p>
+            <ul>
+              <li><code>role="system"</code>：注入全部可用 MCP 工具的 JSON Schema、XML 调用语法（<code>&lt;use_mcp_tool&gt;</code>）以及「每轮只调一个工具、禁止编造工具结果」等环境规则。</li>
+              <li><code>role="assistant"</code>：每轮同时包含规划/推理文本 $T_t$（例如先列 1/2/3 步骤）和工具调用块 $A_t$；结束探索后给出综合推理与初步答案。</li>
+              <li><code>role="user"</code>：第一轮放任务问题 $x$，中间各轮用来回填工具返回的观察文本 $O_t$。</li>
+              <li><strong>末尾追加一轮 Meta 格式化指令</strong>：样本最后两轮会再补一段 user 提示（「总结上述对话并按严格格式输出 <code>\boxed{...}</code>，不要重新推理，去掉多余标点」），对应 assistant 输出精炼结论。这类数据专门训练模型在超长上下文末尾准确抽取已定答案，减少因格式不规范丢分。</li>
+            </ul>
+          </section>
+
+          <section id="stage1-sft">
+            <h2>2. Stage 1 SFT：为什么必须屏蔽环境 Observation 的 Loss？</h2>
+            <p>
+              记初始任务为 $x$，多步交互轨迹为 $H = \{(T_t, A_t, O_t)\}_{t=1}^{T_H}$。SFT 阶段把预先录制好的整条对话串起来做自回归语言建模，训练时不真正执行外部工具，目标函数只对 assistant 产出的思考 $T_t$ 与动作 $A_t$ 计算负对数似然：
+            </p>
+            $$\mathcal{L}_{\text{SFT}}(\theta) = -\mathbb{E}_{(x, H)}\!\left[\sum_{t=1}^{T_H} \log \pi_\theta(T_t, A_t \mid x, H_{&lt;t})\right]$$
+            <p>
+              具体到 token 级掩码（对应 MiroTrain <code>sft_trainer.py</code>）：
+            </p>
+            <ul>
+              <li><code>system</code>、<code>user</code>（问题与工具返回 $O_t$）：<strong>loss mask = 0</strong>（参与前向注意力，模型能完整看到 $O_t$，但不计算交叉熵损失，防止模型去背诵网页文本）。</li>
+              <li><code>assistant</code>（$T_t$、$A_t$ 与最终答案）：<strong>loss mask = 1</strong>，让模型专注学会两件事：什么时候该调哪个工具并写对语法，以及拿到返回后如何整合成符合格式要求的结论。</li>
+            </ul>
+          </section>
+
+          <section id="stage2-dpo">
+            <h2>3. Stage 2 DPO：只按结果对错配对，再加辅助 SFT 防漂移</h2>
+            <p>
+              SFT 跑通基础工具调用后，第二阶段在 SFT 模型采样出的轨迹上构造偏好对 $\mathcal{D}_{\text{DPO}} = \{(x_i, H_i^+, H_i^-)\}_{i=1}^{M}$。MiroThinker 在构对时做了一个务实的取舍：<strong>只以最终答案对错作为主判据，不人为强加固定规划长度、步数或模板启发式</strong>，因为硬编码轨迹风格会引入系统性偏置，妨碍跨领域扩展。过滤层面只清理明显残缺样本（要求 $H^+$ 推理连贯、含规划过程、答案正确；$H^-$ 同样产出合法答案格式，剔除重复、截断和乱码）。
+            </p>
+            <p>
+              标准 DPO 损失拉大正样本 $H^+$ 与负样本 $H^-$ 的对数似然间隔，同时用冻结的参考策略 $\pi_{\text{ref}}$（通常是 SFT checkpoint）防止当前策略 $\pi_\theta$ 偏离过远：
+            </p>
+            $$\mathcal{L}_{\text{DPO}}(x, H^+, H^-) = -\log \sigma\!\Bigl(\beta\bigl[\bigl(\log \pi_\theta(H^+ \mid x) - \log \pi_\theta(H^- \mid x)\bigr) - \bigl(\log \pi_{\text{ref}}(H^+ \mid x) - \log \pi_{\text{ref}}(H^- \mid x)\bigr)\bigr]\Bigr)$$
+            <p>
+              但在几万 token 的长轨迹工具调用中，纯 DPO 只优化相对差值，经常出现 chosen 与 rejected 概率同时下降、导致 XML 工具格式退化或风格漂移的问题。因此 MiroThinker 在最终偏好目标里叠加了一项针对正样本 $H^+$ 的<strong>辅助 SFT 损失（Auxiliary NLL）</strong>：
+            </p>
+            $$\mathcal{L}_{\text{PO}}(\theta) = \mathbb{E}_{(x, H^+, H^-)}\bigl[\mathcal{L}_{\text{DPO}}(x, H^+, H^-)\bigr] + \lambda\, \mathcal{L}_{\text{SFT}}^{(+)}(\theta)$$
+            <p>
+              直觉很直接：DPO 负责把策略从错误轨迹推开，辅助 SFT 像锚一样把生成分布拉回高质量轨迹与严格工具格式上。
+            </p>
+          </section>
+
+          <section id="stage3-grpo">
+            <h2>4. Stage 3 Agentic GRPO：用流式异步 Rollout 打破长尾拖累</h2>
+            <p>
+              离线 SFT 与 DPO 都受限于既有轨迹分布，第三阶段通过在线 <strong>GRPO（Group Relative Policy Optimization）</strong>让模型在真实搜索、网页抓取、Python 沙箱和 Linux 虚拟机环境里自主探索。把 RL 搬到几百轮交互的 Agent 场景，最先卡死的不是算法公式，而是系统吞吐和轨迹噪声。
+            </p>
+
+            <h3>4.1 解决长尾 Straggler 问题：Streaming Rollout</h3>
+            <p>
+              单轮数学 RL 的样本生成耗时较均匀，而多轮 Agent RL 需要反复等待外部搜索与沙箱执行，轨迹完成时间呈严重长尾分布。如果采用传统同步批量采样（一个 iteration 发出 $N$ 条 rollout，等最慢那条跑完再更新参数），绝大多数 worker 会在后期空转等待，GPU 利用率急剧下降。
+            </p>
+
+            <figure class="note-figure">
+              <svg viewBox="0 0 680 182" role="img" aria-label="同步 Rollout 长尾等待与流式异步 Task Queue Rollout 对比">
+                <text x="16" y="22" font-size="11.5" font-weight="600" fill="var(--muted)">传统同步批量采样：被最慢长尾轨迹阻塞</text>
+                <rect x="16" y="32" width="120" height="18" rx="3" fill="var(--line)" />
+                <text x="76" y="45" text-anchor="middle" font-size="10" fill="var(--ink)">Worker 1 (快)</text>
+                <rect x="140" y="32" width="380" height="18" rx="3" fill="none" stroke="var(--line)" stroke-dasharray="4 3" />
+                <text x="330" y="45" text-anchor="middle" font-size="10" fill="var(--muted)">GPU 空闲等待 Straggler...</text>
+
+                <rect x="16" y="56" width="504" height="18" rx="3" fill="var(--accent)" opacity="0.25" stroke="var(--accent)" />
+                <text x="268" y="69" text-anchor="middle" font-size="10" fill="var(--ink)">Worker 2 (500 轮长尾轨迹，整批卡死)</text>
+                <rect x="528" y="32" width="134" height="42" rx="4" fill="var(--bg)" stroke="var(--line)" />
+                <text x="595" y="57" text-anchor="middle" font-size="10.5" fill="var(--muted)">才能做 1 次 Update</text>
+
+                <line x1="16" y1="92" x2="662" y2="92" stroke="var(--line)" stroke-width="1" />
+
+                <text x="16" y="114" font-size="11.5" font-weight="600" fill="var(--ink)">MiroThinker Streaming Rollout：任务队列流水线，未完成样本回放队列</text>
+                <rect x="16" y="124" width="108" height="18" rx="3" fill="var(--accent)" opacity="0.2" stroke="var(--accent)" />
+                <text x="70" y="137" text-anchor="middle" font-size="10" fill="var(--ink)">Task A 完成</text>
+                <rect x="128" y="124" width="118" height="18" rx="3" fill="var(--accent)" opacity="0.2" stroke="var(--accent)" />
+                <text x="187" y="137" text-anchor="middle" font-size="10" fill="var(--ink)">立刻领 Task C</text>
+                <rect x="250" y="124" width="104" height="18" rx="3" fill="var(--accent)" opacity="0.2" stroke="var(--accent)" />
+                <text x="302" y="137" text-anchor="middle" font-size="10" fill="var(--ink)">立刻领 Task D</text>
+
+                <rect x="16" y="148" width="338" height="18" rx="3" fill="var(--bg)" stroke="var(--muted)" />
+                <text x="185" y="161" text-anchor="middle" font-size="10" fill="var(--muted)">Task B（慢轨迹，凑满 batch 后暂标 unfinished）</text>
+
+                <rect x="366" y="124" width="144" height="42" rx="4" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.4" />
+                <text x="438" y="142" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--ink)">凑满目标样本立即 Update</text>
+                <text x="438" y="158" text-anchor="middle" font-size="9.5" fill="var(--accent)">吞吐提升 &gt; 2× (MiroRL)</text>
+
+                <rect x="522" y="124" width="140" height="42" rx="4" fill="var(--bg)" stroke="var(--line)" stroke-dasharray="4 2" />
+                <text x="592" y="142" text-anchor="middle" font-size="10" fill="var(--muted)">Task B 放回队列</text>
+                <text x="592" y="158" text-anchor="middle" font-size="9.5" fill="var(--muted)">下一轮继续跑完</text>
+              </svg>
+              <figcaption>图 2：Streaming Rollout 调度机制。以 trajectory 为粒度做流水线式生产，不让个别极长轨迹拖慢整批参数更新。</figcaption>
+            </figure>
+
+            <p>
+              系统维护一个全局任务队列：哪个 worker 先跑完一条轨迹，就立刻从队列取下一条继续跑；一旦本轮收集够规定数量的完整轨迹，立刻触发策略更新，尚未跑完的慢轨迹标记为 unfinished 放回队列供下一轮继续。团队后续开源的 MiroRL 框架采用同类异步流式 rollout，实现了超过 <strong>2 倍</strong>的端到端训练加速。
+            </p>
+
+            <h3>4.2 轨迹清洗、奖励设计与 GRPO 目标</h3>
+            <p>
+              在算梯度之前，MiroThinker 增加了严格的 <strong>Trajectory Curation（轨迹清洗）</strong>：
+            </p>
+            <ul>
+              <li><strong>过滤带噪声的「正确轨迹」</strong>：剔除连续 5 次以上网络/API 异常、反复重试同一动作或严重超时却碰巧答对的样本，避免把环境抖动当成有效策略强化进去。</li>
+              <li><strong>过滤退化的「错误轨迹」</strong>：剔除单纯因漏写答案格式出错、陷入动作复读循环或未探索就提前终止的样本。</li>
+            </ul>
+            <p>
+              单条轨迹的组合奖励平衡结果正确性与格式约束：
+            </p>
+            $$R(x, H) = \alpha_c R_{\text{correct}}(H) - \alpha_f R_{\text{format}}(H)$$
+            <p>
+              对每个问题 $x$，从当前策略 $\pi_\theta$ 采样一组 $G$ 条轨迹 $\{H_1, \dots, H_G\}$，以组内均值作为基线计算优势，并在 KL 约束下更新策略：
+            </p>
+            $$\hat{A}_i = R(x, H_i) - \frac{1}{G}\sum_{j=1}^{G} R(x, H_j)$$
+            $$\mathcal{L}_{\text{GRPO}}(\theta) = \mathbb{E}_{x \sim \mathcal{D}}\,\mathbb{E}_{H \sim \pi_\theta(\cdot \mid x)}\Bigl[\hat{A}(x, H)\cdot \log \pi_\theta(H \mid x) - \beta_{\text{KL}}\, D_{\text{KL}}\bigl(\pi_\theta(\cdot \mid x) \,\|\, \pi_{\text{ref}}(\cdot \mid x)\bigr)\Bigr]$$
+          </section>
+
+          <section id="results">
+            <h2>5. 实验结果：交互深度带来 8 至 10 分稳定增益，但预测不等于搜索</h2>
+            <p>
+              MiroThinker v1.0 在统一极简 ReAct 框架（温度 1.0、最大 600 轮、256K 上下文、观察保留预算 5、禁用 HuggingFace 防泄漏）下评测了 8 项公开深度研究基准（HLE 文本子集 2,158 题、GAIA 文本子集 103 题，其余全量测试）：
+            </p>
+
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>模型 / 系统</th>
+                    <th class="num">HLE</th>
+                    <th class="num">BrowseComp</th>
+                    <th class="num">BC-ZH</th>
+                    <th class="num">GAIA</th>
+                    <th class="num">xbench-DS</th>
+                    <th class="num">WebWalker</th>
+                    <th class="num">FRAMES</th>
+                    <th class="num">SEAL-0</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>DeepSeek-V3.2</td>
+                    <td class="num">27.2</td>
+                    <td class="num">40.1</td>
+                    <td class="num">47.9</td>
+                    <td class="num">63.5</td>
+                    <td class="num">71.0</td>
+                    <td class="num">-</td>
+                    <td class="num">80.2</td>
+                    <td class="num">38.5</td>
+                  </tr>
+                  <tr>
+                    <td>Claude-4.5-Sonnet</td>
+                    <td class="num">24.5</td>
+                    <td class="num">19.6</td>
+                    <td class="num">40.8</td>
+                    <td class="num">71.2</td>
+                    <td class="num">66.0</td>
+                    <td class="num">-</td>
+                    <td class="num">85.0</td>
+                    <td class="num best">53.4</td>
+                  </tr>
+                  <tr>
+                    <td>OpenAI-o3</td>
+                    <td class="num">24.9</td>
+                    <td class="num">49.7</td>
+                    <td class="num">58.1</td>
+                    <td class="num">-</td>
+                    <td class="num">67.0</td>
+                    <td class="num">71.7</td>
+                    <td class="num">84.0</td>
+                    <td class="num">17.1</td>
+                  </tr>
+                  <tr>
+                    <td>OpenAI-GPT-5-high</td>
+                    <td class="num">35.2</td>
+                    <td class="num best">54.9</td>
+                    <td class="num best">65.0</td>
+                    <td class="num">76.4</td>
+                    <td class="num best">77.8</td>
+                    <td class="num">-</td>
+                    <td class="num">-</td>
+                    <td class="num">51.4</td>
+                  </tr>
+                  <tr>
+                    <td>Tongyi-DeepResearch-30B</td>
+                    <td class="num">32.9</td>
+                    <td class="num">43.4</td>
+                    <td class="num">46.7</td>
+                    <td class="num">70.9</td>
+                    <td class="num">75.0</td>
+                    <td class="num best">72.2</td>
+                    <td class="num best">90.6</td>
+                    <td class="num">-</td>
+                  </tr>
+                  <tr>
+                    <td><strong>MiroThinker-v1.0-8B</strong></td>
+                    <td class="num">21.5</td>
+                    <td class="num">31.1</td>
+                    <td class="num">40.2</td>
+                    <td class="num">66.4</td>
+                    <td class="num">60.6</td>
+                    <td class="num">60.6</td>
+                    <td class="num">80.6</td>
+                    <td class="num">40.4</td>
+                  </tr>
+                  <tr>
+                    <td><strong>MiroThinker-v1.0-30B</strong></td>
+                    <td class="num">33.4</td>
+                    <td class="num">41.2</td>
+                    <td class="num">47.8</td>
+                    <td class="num">73.5</td>
+                    <td class="num">70.6</td>
+                    <td class="num">61.0</td>
+                    <td class="num">85.4</td>
+                    <td class="num">46.8</td>
+                  </tr>
+                  <tr>
+                    <td><strong>MiroThinker-v1.0-72B</strong></td>
+                    <td class="num best">37.7</td>
+                    <td class="num">47.1</td>
+                    <td class="num">55.6</td>
+                    <td class="num best">81.9</td>
+                    <td class="num best">77.8</td>
+                    <td class="num">62.1</td>
+                    <td class="num">87.1</td>
+                    <td class="num">51.0</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3>5.1 SFT 到 RL 的交互深度演化（MiroThinker-30B）</h3>
+            <p>
+              对比同一 30B 模型在 SFT 与 RL 后的轮次分布（原报告 Fig. 5），RL 显著拉长了有效探索深度，并在四个核心基准上带来 <strong>8 至 10 个百分点</strong>的稳定提升：
+            </p>
+            <ul>
+              <li><strong>BrowseComp</strong>：SFT <code>32.2 ± 1.1</code> → RL <code>41.2 ± 1.3</code>（+9.0）</li>
+              <li><strong>BrowseComp-ZH</strong>：SFT <code>37.6 ± 2.2</code> → RL <code>47.8 ± 1.1</code>（+10.2）</li>
+              <li><strong>HLE</strong>：SFT <code>24.1 ± 0.7</code> → RL <code>33.4 ± 0.2</code>（+9.3）</li>
+              <li><strong>GAIA</strong>：SFT <code>65.4 ± 4.0</code> → RL <code>73.5 ± 2.6</code>（+8.1）</li>
+            </ul>
+
+            <div class="note-callout">
+              <p class="note-callout-title">延伸观察：在未来预测（FutureX）这类开放任务里的适用边界</p>
+              <p>
+                MiroThinker 擅长的是「目标事实已存在，需要高频搜索、抽取与反复交叉核验」的研究任务；但迁移到开放世界未来预测（如 FutureX）时，仍需看清两类差异：第一，<strong>预测不等于搜索</strong>，最后一步必须把冲突证据校准成概率判断，而不是找到某个确定词条；第二，<strong>时间可见性约束</strong>极其关键，如果训练和推理没有严格截断未来信息，搜索能力越强反而越容易触发时间泄漏（MiroThinker v1.5 已专门补齐时间边界约束）。
+              </p>
+            </div>
+          </section>
+
+          <section id="references">
+            <h2>参考资料</h2>
+            <ul>
+              <li>MiroMind Team (2025). <em>MiroThinker v1.0 Technical Report</em>.</li>
+              <li>Dataset: <a href="https://huggingface.co/datasets/miromind-ai/MiroVerse-v0.1">miromind-ai/MiroVerse-v0.1</a></li>
+              <li>Training Code: <a href="https://github.com/MiroMindAI/MiroTrain">MiroMindAI/MiroTrain</a></li>
+            </ul>
+          </section>
+        </article>
+      </main>
+
+      <footer class="site-footer">
+        <span>© 2026 Chuyang Wei</span>
+        <a href="../">All Notes</a>
+        <a href="../../">Home</a>
+        <a href="../../cv/">CV</a>
+      </footer>
+    </div>
+  </body>
+</html>

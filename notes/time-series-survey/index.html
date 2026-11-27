@@ -4,10 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>时间序列调研：方法脉络、大模型范式与模型空间实践 | Chuyang Wei</title>
+    <title>时间序列建模演进：从统计分解、大模型到模型空间 | Chuyang Wei</title>
     <meta
       name="description"
-      content="完整版时间序列系统调研：数据特性、四大任务与痛点，从传统统计、CNN/RNN、Transformer、Linear、Diffusion、SSM/Mamba 到 Time-LLM / TimeCMA / Chronos / TimesFM / Time-MoE 与 Agent 框架，及模型空间学习（MSL/ESN）科研总结。"
+      content="完整版时间序列系统调研：数据特性、四大任务与核心挑战，从传统统计、CNN/RNN、Transformer、Linear、Diffusion、SSM/Mamba 到 Time-LLM / TimeCMA / Chronos / TimesFM / Time-MoE 与 Agent 框架，及模型空间学习（MSL/ESN）科研总结。"
     />
     <link
       rel="canonical"
@@ -16,7 +16,7 @@
     <meta property="og:type" content="article" />
     <meta
       property="og:title"
-      content="时间序列调研：方法脉络、大模型范式与模型空间实践"
+      content="时间序列建模演进：从统计分解、大模型到模型空间"
     />
     <meta
       property="og:description"
@@ -59,10 +59,10 @@
       <main class="note-main" id="main">
         <article class="note-article">
           <header class="note-header">
-            <p class="eyebrow">SURVEY NOTE · 2025-09-04</p>
-            <h1>时间序列调研：方法脉络、大模型范式与模型空间实践</h1>
+            <p class="eyebrow">SURVEY NOTE | 2025-09-04</p>
+            <h1>时间序列建模演进：从统计分解、大模型到模型空间</h1>
             <p class="note-meta">
-              Chuyang Wei · Time Series / Foundation Models / Agent / Reservoir Computing
+              Time Series / Foundation Models / Agent / Reservoir Computing（含全部 36 幅架构与实验图）
             </p>
           </header>
 
@@ -70,23 +70,23 @@
             <summary>目录导航</summary>
             <ol>
               <li>
-                <a href="#background">一、时序背景介绍</a>（概念与数据特性 · 四类任务 · 核心痛点总结）
+                <a href="#background">1. 时间序列为什么难做：非平稳性、四大任务与核心挑战</a>（数据特性 / 四类任务 / 共性难题）
               </li>
               <li>
-                <a href="#pre-llm">二、大模型之前的方法发展脉络</a>（统计与传统 DL · Transformer 与归纳偏置 · 线性可赢 · Diffusion · SSM 与 Mamba）
+                <a href="#pre-llm">2. 大模型之前的架构演进：为什么简单线性模型一度击败复杂 Transformer？</a>（统计与传统 DL / Transformer / Linear / Diffusion / SSM 与 Mamba）
               </li>
               <li>
-                <a href="#llm-ts">三、大模型时代的时序分析</a>（模态对齐 Time-LLM / TimeCMA · 原生基座 Chronos / TimesFM / Time-MoE · Agent 视角 TS-Agent / FLAIRR-TS）
+                <a href="#llm-ts">3. 大模型时代的时序范式：模态对齐、原生基座与 Agent 工作流</a>（Time-LLM / TimeCMA / Chronos / TimesFM / Time-MoE / TS-Agent / FLAIRR-TS）
               </li>
               <li>
-                <a href="#msl-rc">四、过往科研工作总结</a>（模型空间学习 MSL · ESN 理论与岭回归 · SpaDyn / SARC / 连续时间伴随学习）
+                <a href="#msl-rc">4. 模型空间学习（MSL）与储备池计算实践总结</a>（MSL / ESN 理论与岭回归 / SpaDyn / SARC / 连续时间伴随学习）
               </li>
             </ol>
           </details>
 
           <!-- ==================== SECTION 1 ==================== -->
           <section id="background">
-            <h2>一、时序背景介绍</h2>
+            <h2>1. 时间序列为什么难做：非平稳性、四大任务与核心挑战</h2>
 
             <h3>1.1 概念定义与数据特性</h3>
             <p>
@@ -195,11 +195,11 @@
               主要挑战包括：需同时捕捉<strong>短期相关与长期结构</strong>；未来演化高度不确定且往往呈<strong>多峰分布</strong>，要求模型表达多模态输出；且<strong>缺乏统一客观的评估指标</strong>，比图像保真度更难量化衡量。
             </p>
 
-            <h3>1.3 时序问题的痛点总结</h3>
+            <h3>1.3 时序问题的核心挑战总结</h3>
             <figure class="note-img-figure img-narrow">
               <img
                 src="https://cdn.jsdelivr.net/gh/Weichy9218/Image@main/typora/image-20250902183038769.png"
-                alt="时间序列数据与任务痛点总览"
+                alt="时间序列数据与任务难点总览"
                 loading="lazy"
               />
               <figcaption>真实世界时间序列建模的共性难题总览。</figcaption>
@@ -212,7 +212,7 @@
                 <em>例：医疗健康中生命体征、检验与用药异步采样，存在大量“信息性缺失”（测不到或不测本身往往包含临床信号），且随病程显著非平稳。</em>
               </li>
               <li>
-                <strong>分布漂移（Distribution Shift）</strong>：非平稳性是时序最具挑战的痛点，具体分为<strong>协变量漂移</strong>（输入分布变）、<strong>先验概率漂移</strong>（目标分布变）和<strong>概念漂移</strong>（输入与输出关系变）。
+                <strong>分布漂移（Distribution Shift）</strong>：非平稳性是时序最具挑战的难题，具体分为<strong>协变量漂移</strong>（输入分布变）、<strong>先验概率漂移</strong>（目标分布变）和<strong>概念漂移</strong>（输入与输出关系变）。
                 <em>例：工业传感器维护中负载、转速与工况频繁切换，跨机型/批次域间差异显著，设备寿命呈“运行到失效”的长尾形态。</em>
               </li>
               <li>
@@ -228,7 +228,7 @@
               </li>
             </ol>
 
-            <h4>任务相关的特定痛点与解法对照</h4>
+            <h4>任务相关的特定难点与解法对照</h4>
             <div class="note-table-wrap">
               <table>
                 <thead>
@@ -266,7 +266,7 @@
 
           <!-- ==================== SECTION 2 ==================== -->
           <section id="pre-llm">
-            <h2>二、大模型之前的方法发展脉络</h2>
+            <h2>2. 大模型之前的架构演进：为什么简单线性模型一度击败复杂 Transformer？</h2>
             <p>
               从 20 世纪后期的统计模型（ARIMA、HMM），到 21 世纪初的机器学习（SVM、随机森林），再到近十年的深度学习（RNN/LSTM、CNN、Transformer、Diffusion、SSM/Mamba），整体演化呈现出四条清晰趋势：
             </p>
@@ -373,7 +373,7 @@
             </div>
 
             <p>
-              在“线性可赢”的启发下，研究转向对 MLP / CNN / RNN / GNN 做<strong>轻量化、混合式与模型无关（model-agnostic）</strong>改造——所谓“模型无关”，是指分解、归一化、频域变换等特征策略不绑定特定主干，可跨架构复用：
+              在“线性可赢”的启发下，研究转向对 MLP / CNN / RNN / GNN 做<strong>轻量化、混合式与模型无关（model-agnostic）</strong>改造。所谓“模型无关”，是指分解、归一化、频域变换等特征策略不绑定特定主干，可跨架构复用：
             </p>
 
             <figure class="note-img-figure img-compact">
@@ -412,7 +412,7 @@
                 alt="TimesNet 1D 到 2D 周期折叠与卷积示意"
                 loading="lazy"
               />
-              <figcaption>TimesNet：通过 FFT 发现多周期并将 1D 时序重塑为 2D 变化张量。</figcaption>
+              <figcaption>TimesNet：通过 FFT 发现多周期并将 1D 时序折叠为 2D 变化张量。</figcaption>
             </figure>
 
             <h3>2.4 概率生成视角：Diffusion Models</h3>
@@ -451,7 +451,7 @@
             <div class="note-callout">
               <p class="note-callout-title">SSM 为什么同时具备「长记忆」与「高效率」？</p>
               <ul>
-                <li><strong>谱衰减与多尺度记忆</strong>：矩阵 $A$ 的特征值控制历史衰减速率——当 $|\lambda| &lt; 1$ 时按 $\lambda^k$ 衰减；$|\lambda|$ 越接近 1 衰减越慢（长记忆），较小则快衰减（短记忆）。一组不同特征值自然构成多时间尺度记忆机制，配合 <strong>HiPPO</strong> 正交多项式基可实现理论最优历史压缩。</li>
+                <li><strong>谱衰减与多尺度记忆</strong>：矩阵 $A$ 的特征值控制历史衰减速率：当 $|\lambda| &lt; 1$ 时按 $\lambda^k$ 衰减；$|\lambda|$ 越接近 1 衰减越慢（长记忆），较小则快衰减（短记忆）。一组不同特征值自然构成多时间尺度记忆机制，配合 <strong>HiPPO</strong> 正交多项式基可实现理论最优历史压缩。</li>
                 <li><strong>计算效率</strong>：RNN 需串行递推 $O(T)$；Transformer 全局注意力需 $O(T^2)$；SSM 在 LTI 假设下等价于 $y = K * u$，借助 <strong>S4（NPLR + Cauchy 核）与 FFT / 并行扫描</strong>，能以 $O(T \log T)$ 甚至 $O(T)$ 一次性并行计算整条序列。</li>
               </ul>
             </div>
@@ -469,13 +469,13 @@
             </figure>
 
             <p>
-              <mark>小结：大模型前的演进脉络清晰——更强的非线性刻画、更长的多尺度记忆、更少的人工特征干预，以及从点预测走向不确定性分布建模。</mark>
+              <mark>小结：大模型前的演进方向非常清楚：更强的非线性刻画、更长的多尺度记忆、更少的人工特征干预，以及从点预测走向不确定性分布建模。</mark>
             </p>
           </section>
 
           <!-- ==================== SECTION 3 ==================== -->
           <section id="llm-ts">
-            <h2>三、大模型时代的时序分析</h2>
+            <h2>3. 大模型时代的时序范式：模态对齐、原生基座与 Agent 工作流</h2>
             <blockquote>
               <p>
                 “Can large pretrained models trained on massive amounts of time-series data learn temporal patterns that can be useful for time-series forecasting on previously unseen datasets?”
@@ -505,7 +505,7 @@
                     <td><strong>Challenge（挑战）</strong></td>
                     <td>
                       ① <strong>模态对齐鸿沟</strong>：连续、高噪、非平稳数值流 vs. 离散、语义稠密自然语言；<br />
-                      ② <strong>离散化信息损失</strong>：量化词表虽便于复用 LLM 与概率采样，但存在数值精度折损；<br />
+                      ② <strong>离散化信息损失</strong>：量化词表虽便于复用 LLM 与概率采样，但存在数值精度损失；<br />
                       ③ <strong>归纳偏置错配</strong>：纯语言先验未必天然利好纯数值动力学预测，本质仍是未彻底解决的对齐难题；<br />
                       ④ <strong>预训练语料与统一基准短缺</strong>：高覆盖、多域、多频率公开时序语料仍相对稀缺。
                     </td>
@@ -550,7 +550,7 @@
             </figure>
             <ul>
               <li>
-                <strong>Prompt-as-Prefix（PaP）</strong>：前缀提示由三部分构成——<strong>dataset context（数据集背景）</strong>、<strong>task instruction（任务指令）</strong>与<strong>input statistics（最小/最大/中位数/趋势/滞后等统计量）</strong>；前向传播后丢弃前缀输出，仅对时序部分隐状态做线性投影。
+                <strong>Prompt-as-Prefix（PaP）</strong>：前缀提示由三部分构成：<strong>dataset context（数据集背景）</strong>、<strong>task instruction（任务指令）</strong>与<strong>input statistics（最小/最大/中位数/趋势/滞后等统计量）</strong>；前向传播后丢弃前缀输出，仅对时序部分隐状态做线性投影。
               </li>
             </ul>
             <figure class="note-img-figure img-narrow">
@@ -614,7 +614,7 @@
               </p>
               $$\ell(\theta) = -\sum_{h=1}^{H+1}\sum_{i \in V_{\text{ts}}} \mathbf{1}(z_{C+h+1} = i)\log p_\theta(i \mid z_{1:C+h})$$
               <p>
-                推理阶段把采样的 token $z$ 映射回箱中心 $d(z) = c_z$ 再乘以尺度 $s$ 还原实值。Chronos 简洁稳健，但不具备通用自然语言理解能力，且量化会带来一定精度折损。
+                推理阶段把采样的 token $z$ 映射回箱中心 $d(z) = c_z$ 再乘以尺度 $s$ 还原实值。Chronos 简洁稳健，但不具备通用自然语言理解能力，且量化会带来一定精度损失。
               </p>
             </div>
 
@@ -672,7 +672,7 @@
 
             <h4><a href="https://arxiv.org/abs/2508.13915">TS-Agent (2025.08)</a></h4>
             <p>
-              面向金融时间序列的模块化智能体框架，将建模工作流形式化为“<strong>模型选择 → 代码细化 → 超参微调</strong>”的迭代决策闭环，依赖三类结构化外部知识库约束搜索空间：
+              面向金融时间序列的模块化智能体框架，将建模工作流形式化为“<strong>模型选择 → 代码细化 → 超参微调</strong>”的迭代决策流程，依赖三类结构化外部知识库约束搜索空间：
             </p>
             <figure class="note-img-figure">
               <img
@@ -700,7 +700,7 @@
 
             <h4><a href="https://arxiv.org/abs/2508.19279">FLAIRR-TS (2025.08)</a></h4>
             <p>
-              目标是在<strong>完全不微调权重</strong>的前提下，通过“可解释外部检索 + 在线提示词迭代优化”动态适配新领域。整个系统由三个协作角色构成测试时优化闭环：
+              目标是在<strong>完全不微调权重</strong>的前提下，通过“可解释外部检索 + 在线提示词迭代优化”动态适配新领域。整个系统由三个协作角色构成测试时优化循环：
             </p>
             <figure class="note-img-figure">
               <img
@@ -725,7 +725,7 @@
 
           <!-- ==================== SECTION 4 ==================== -->
           <section id="msl-rc">
-            <h2>四、过往科研工作总结：模型空间学习与储备池计算</h2>
+            <h2>4. 模型空间学习（MSL）与储备池计算实践总结</h2>
 
             <h3>4.1 模型空间学习（Model Space Learning, MSL）</h3>
             <p>
@@ -767,7 +767,7 @@
             <p>储备池隐状态随时间按如下递推演化（激活函数 $g(\cdot)$ 通常取 $\tanh$）：</p>
             $$h(n) = g\big(W^{hh} h(n-1) + W^{hx} x(n)\big)$$
             <p>
-              为保证动力学稳定性，储备池必须满足<strong>回声状态性质（Echo State Property, ESP）</strong>——历史输入对当前状态的影响随时间衰减，实践中通过缩放谱半径 $\|\lambda_{\max}\|$ 实现：
+              为保证动力学稳定性，储备池必须满足<strong>回声状态性质（Echo State Property, ESP）</strong>：历史输入对当前状态的影响随时间衰减，实践中通过缩放谱半径 $\|\lambda_{\max}\|$ 实现：
             </p>
             $$W^{hh} \leftarrow \frac{\alpha W^{hh}}{\|\lambda_{\max}\|}, \qquad 0 &lt; \alpha &lt; 1$$
             <p>

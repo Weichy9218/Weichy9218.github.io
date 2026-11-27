@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Muon 为什么前期快、后期震荡 | Chuyang Wei</title>
+    <meta
+      name="description"
+      content="解析矩阵优化器 Muon 的数学本质与收敛边界：从 SVD 奇异值垄断讲起，拆解矩阵符号正交化（UV^T）、五阶 Newton-Schulz 快速近似（zeropower_via_newtonschulz5）、重尾联想记忆加速机制，以及河谷视角下后期减速与震荡的根本原因与两阶段训练策略。"
+    />
+    <link
+      rel="canonical"
+      href="https://weichy9218.github.io/notes/muon-optimizer/"
+    />
+    <meta property="og:type" content="article" />
+    <meta
+      property="og:title"
+      content="Muon 为什么前期快、后期震荡"
+    />
+    <meta
+      property="og:description"
+      content="拆解 Muon 优化器的正交化更新、五阶 Newton-Schulz 实现、重尾分布容量优势，以及后期失去残差尺度后的震荡机制。"
+    />
+    <meta
+      property="og:url"
+      content="https://weichy9218.github.io/notes/muon-optimizer/"
+    />
+    <link rel="icon" href="../../assets/profile/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../../assets/profile/fonts.css" />
+    <link rel="stylesheet" href="../../assets/profile/site.css" />
+    <link rel="stylesheet" href="../../assets/katex/katex.min.css" />
+    <script src="../../assets/profile/site.js" defer></script>
+    <script src="../../assets/katex/katex.min.js" defer></script>
+    <script src="../../assets/katex/auto-render.min.js" defer></script>
+    <script src="../../assets/katex/init.js" defer></script>
+  </head>
+  <body>
+    <div class="page">
+      <a class="skip-link" href="#main">Skip to content</a>
+      <header class="site-header">
+        <a class="wordmark" href="../../">CW<span> / Notes</span></a>
+        <nav aria-label="Main navigation">
+          <a href="../../">Home</a
+          ><a href="../" class="nav-active" aria-current="page">Notes</a
+          ><a href="../../cv/">CV</a>
+        </nav>
+        <button
+          class="theme-button"
+          type="button"
+          aria-label="Use dark theme"
+          aria-pressed="false"
+          hidden
+        >
+          <span aria-hidden="true">◐</span>
+        </button>
+      </header>
+
+      <main class="note-main" id="main">
+        <article class="note-article">
+          <header class="note-header">
+            <p class="eyebrow">OPTIMIZATION | SPECTRAL PRECONDITIONING</p>
+            <h1>Muon 为什么前期快、后期震荡</h1>
+            <p class="note-meta">
+              2026-06-25 | 基于个人学习笔记、Keller Jordan Muon 报告与近期谱优化理论整理
+            </p>
+          </header>
+
+          <p>
+            在 NanoGPT Speedrun 和多款开源大模型预训练中，<strong>Muon（MomentUm Orthogonalized by Newton-Schulz）</strong>用比 AdamW 少 30% 至 50% 的 token 就达到了相同验证集损失。但一线实践和近期理论分析也反复观察到一个硬币的另一面：<strong>Muon 前期下降极快，到了训练后期却容易减速，甚至在最优点附近震荡</strong>。
+          </p>
+          <p>
+            这篇笔记把这两个现象放进同一套矩阵谱分析里讲清楚：先看传统优化器为什么会被少数大奇异值垄断，再拆解 Muon 如何通过矩阵正交化和五阶 Newton-Schulz 迭代实现谱拉平，最后结合近期联想记忆与河谷（River-Valley）动力学理论，说清它的加速来源、后期震荡原因与工程用法。
+          </p>
+
+          <section id="singular-monopoly">
+            <h2>1. 为什么 SGD 和 AdamW 容易被少数大奇异值垄断？</h2>
+            <p>
+              对 Transformer 中间层的二维权重矩阵 $W \in \mathbb{R}^{m \times n}$（如注意力投影 $W_Q, W_K, W_V, W_O$ 和 MLP 权重），标准 SGD-Momentum 的更新规则是：
+            </p>
+            $$M_t = \beta M_{t-1} + (1 - \beta) G_t, \qquad W_{t+1} = W_t - \eta M_t$$
+            <p>
+              其中 $G_t = \nabla_W \mathcal{L}$ 是当前梯度。把梯度或动量矩阵做奇异值分解（SVD）：
+            </p>
+            $$M_t = U \Sigma V^\top = \sigma_1 u_1 v_1^\top + \sigma_2 u_2 v_2^\top + \dots + \sigma_r u_r v_r^\top$$
+            <p>
+              每一个秩一矩阵 $u_i v_i^\top$ 代表一个独立的矩阵更新方向，奇异值 $\sigma_i$ 决定这个方向的步幅。实际训练 Transformer 时，二维参数的梯度和动量矩阵往往严重病态（条件数极高，近似低秩）：前几个主导奇异值远大于其余方向（$\sigma_1 \gg \sigma_2, \sigma_3, \dots$）。结果每一步更新 $-\eta M_t$ 几乎全消耗在 $-\eta \sigma_1 u_1 v_1^\top$ 等高频主导方向上，大量承载长尾知识或稀有模式的较小奇异值方向长期得不到充分更新。
+            </p>
+            <p>
+              AdamW 虽然通过二阶动量做了<strong>逐元素（element-wise）</strong>缩放，但它把矩阵拍扁成独立标量看待，看不到行列之间的耦合结构，因此无法从矩阵谱层面消除各向异性。
+            </p>
+          </section>
+
+          <section id="matrix-orthogonalization">
+            <h2>2. Muon 的核心操作：把动量矩阵做正交化（Matrix Sign）</h2>
+            <p>
+              Muon 在 SGD-Momentum 的基础上只多了一步后处理：更新权重前，先把二维动量矩阵 $M_t$ 做<strong>正交化（求极因子 / Matrix Sign）</strong>，即保留左右奇异向量 $U, V$，把奇异值矩阵 $\Sigma$ 全部拉平为 $1$：
+            </p>
+            $$\operatorname{Ortho}(M_t) = \operatorname{msign}(M_t) = U V^\top, \qquad W_{t+1} = W_t - \eta\, U V^\top$$
+            <p>
+              可以把这一步精确类比为标量符号函数向矩阵空间的推广：
+            </p>
+            <ul>
+              <li><strong>标量 $\operatorname{sign}(g)$</strong>：把 $g = 100$ 和 $g = 0.001$ 都压到 $+1$，丢掉幅度，只保留正负方向。</li>
+              <li><strong>矩阵 $\operatorname{msign}(M_t)$</strong>：执行映射 $U \Sigma V^\top \mapsto U V^\top$，做<strong>谱拉平（Spectral Flattening）</strong>，让所有有效奇异方向以同等尺度推进，不再被最大奇异值垄断。</li>
+            </ul>
+
+            <div class="note-callout">
+              <p class="note-callout-title">概念辨析：正交化不是「变成单位矩阵」</p>
+              <p>
+                一组向量正交归一，意思是两两垂直（$a^\top b = 0$）且模长为 1（$\|a\| = \|b\| = 1$）。如果矩阵的列向量正交归一，满足 $Q^\top Q = I$；如果行向量正交归一，满足 $Q Q^\top = I$。对于非方阵 $M_t \in \mathbb{R}^{m \times n}$，正交化结果 $UV^\top$ 并不是单位矩阵 $I$，而是保留原始方向耦合结构、同时让各独立方向互不干扰且尺度统一的半正交矩阵。也正因依赖矩阵奇异谱，<strong>Muon 只适用于二维隐藏层矩阵</strong>；一维参数（Bias、LayerNorm）以及输入 Embedding / 输出 LM Head 仍需交回 AdamW 优化。
+              </p>
+            </div>
+          </section>
+
+          <section id="newton-schulz">
+            <h2>3. 工程上如何绕开 SVD：五阶 Newton-Schulz 迭代</h2>
+            <p>
+              如果在每个优化步都对大型权重矩阵做精确 SVD，计算开销会彻底吞噬加速收益。Keller Jordan 的关键工程突破，是用 <strong>5 步五阶奇数次 Newton-Schulz 多项式迭代</strong>在 <code>bfloat16</code> 下近似矩阵正交化：
+            </p>
+            $$X_{k+1} = a X_k + b (X_k X_k^\top) X_k + c (X_k X_k^\top)^2 X_k, \qquad X_0 = \frac{M_t}{\|M_t\|_F + \epsilon}$$
+            <p>
+              标量视角下，该迭代把区间 $[0, 1]$ 内的奇异值通过多项式 $\phi(x) = a x + b x^3 + c x^5$ 快速推向 $1$ 附近。Muon 选用的调优系数为 <strong>$a = 3.4445,\; b = -4.7750,\; c = 2.0315$</strong>，刻意最大化原点附近的斜率，使极小的奇异值在短短 5 步内也能迅速抬升（允许最终收敛到 $1$ 附近的一个小区间，实践证明这不影响训练效果，还能在低精度 <code>bfloat16</code> 下保持数值稳定）。
+            </p>
+            <pre><code>def zeropower_via_newtonschulz5(G, steps=5):
+    a, b, c = (3.4445, -4.7750, 2.0315)
+    X = G.bfloat16()
+    if G.size(-2) &gt; G.size(-1):
+        X = X.mT
+    X = X / (X.norm(dim=(-2, -1), keepdim=True) + 1e-7)
+    for _ in range(steps):
+        A = X @ X.mT
+        B = b * A + c * (A @ A)
+        X = a * X + B @ X
+    if G.size(-2) &gt; G.size(-1):
+        X = X.mT
+    return X</code></pre>
+            <p>
+              对于 $m \times n$（设 $m \le n$）矩阵，每步迭代只需纯矩阵乘法（GEMM），复杂度 $O(m^2 n)$，高度契合 GPU Tensor Core。尽管单步优化器开销高于逐元素操作的 AdamW，但由于收敛所需总步数与 token 数大幅减少，总体 wall-clock 时间和累计训练算力仍显著优于纯 AdamW（NanoGPT 124M / 1.5B 等基准上综合效率接近翻倍）。
+            </p>
+          </section>
+
+          <section id="power-and-limits">
+            <h2>4. 理论解释：前期为什么快，后期为什么减速并震荡？</h2>
+            <p>
+              2026 年的两篇理论工作分别从「加速来源」和「收敛局限」两面给出了精确刻画：
+            </p>
+
+            <h3>4.1 前期加速：在重尾数据上放大弱信号（arXiv:2603.26554）</h3>
+            <p>
+              Kim 等人在 <em>Sharp Capacity Scaling of Spectral Optimizers in Learning Associative Memory</em> 中用线性联想记忆（模拟 Transformer 事实召回）分析了幂律重尾分布下的优化过程：
+            </p>
+            <ul>
+              <li>在幂律频次分布下，SGD 的更新被高频条目主导，长尾条目恢复极慢。</li>
+              <li>Muon 仅用一阶梯度信息，单步存储容量就显著超过 SGD，甚至追平需要二阶 Hessian 的牛顿法，且临界 Batch Size 更大。</li>
+              <li>多步动力学显示，Muon 的核心优势集中在<strong>初期恢复速率显著更快</strong>；但接近信息论极限时，收敛速度与 SGD 趋于同阶。</li>
+            </ul>
+
+            <h3>4.2 后期减速与震荡：河谷视角下的过度正则化（arXiv:2606.21514）</h3>
+            <p>
+              <em>Towards Understanding the Power and Limits of the Muon Optimizer: A River-Valley Perspective</em> 将高维矩阵优化问题借助不变流形（Invariant Manifold）约化为三维坐标（对应 <strong>signal / spike / bulk</strong> 三类谱分量），揭示了 Muon 在损失地形（河谷与山坡）上的两面性：
+            </p>
+
+            <figure class="note-figure">
+              <svg viewBox="0 0 680 165" role="img" aria-label="Muon 在训练前期消除各向异性与后期在最优点附近震荡的两阶段机制示意">
+                <defs>
+                  <marker id="muon-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--accent)" />
+                  </marker>
+                </defs>
+                <rect x="14" y="18" width="314" height="128" rx="6" fill="var(--bg)" stroke="var(--line)" stroke-width="1.4" />
+                <text x="171" y="40" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">前期：谱拉平消除各向异性（加速）</text>
+                <text x="171" y="62" text-anchor="middle" font-size="10.5" fill="var(--muted)">原始梯度：σ₁ ≫ σ₂, σ₃（仅大方向推进）</text>
+                <line x1="56" y1="88" x2="278" y2="88" stroke="var(--accent)" stroke-width="2" marker-end="url(#muon-arrow)" />
+                <text x="171" y="108" text-anchor="middle" font-size="10.5" fill="var(--accent)">msign(M_t) = U Vᵀ：弱信号方向同步放大</text>
+                <text x="171" y="128" text-anchor="middle" font-size="10" fill="var(--muted)">沿河谷方向快速下降，重尾特征早早对齐</text>
+
+                <rect x="352" y="18" width="314" height="128" rx="6" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.4" />
+                <text x="509" y="40" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">后期：抹去残差尺度导致过冲（减速/震荡）</text>
+                <text x="509" y="62" text-anchor="middle" font-size="10.5" fill="var(--muted)">接近谷底：真实梯度范数很小，但更新仍被拉回单位尺度</text>
+                <polyline points="392,94 432,76 472,102 512,78 552,100 592,80 628,96" fill="none" stroke="var(--accent)" stroke-width="2" />
+                <text x="509" y="122" text-anchor="middle" font-size="10" fill="var(--muted)">固定学习率下在谷底来回过冲，必须依赖强衰减或切换 GD/AdamW</text>
+              </svg>
+              <figcaption>图 1：Muon 的两阶段动力学特征。同一种「抹平奇异值幅度」机制，前期是加速优势，后期则转化为谷底震荡的根源。</figcaption>
+            </figure>
+
+            <p>
+              原因并不神秘：<strong>成也 <code>sign</code>，败也 <code>sign</code></strong>。
+            </p>
+            <ul>
+              <li>训练前期，不同方向的梯度幅度悬殊，抹平奇异值正好消除了各向异性，让小奇异值方向不再被淹没。</li>
+              <li>训练后期，参数已经逼近最优点（河谷底部），此时真正需要的不再是「一视同仁的大步迈进」，而是随残差自然缩小的精细步长。Muon 每一步仍强行把更新矩阵的奇异值重新归一化到 1（等价于过度正则化），在固定学习率下必然反复跨过谷底产生<strong>震荡（oscillatory）</strong>和有效推进<strong>减速（decelerating）</strong>。</li>
+            </ul>
+          </section>
+
+          <section id="practical-recipe">
+            <h2>5. 工程结论：混合配置与两阶段收敛策略</h2>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>维度</th>
+                    <th>SGD-Momentum</th>
+                    <th>AdamW</th>
+                    <th>Muon（2D 隐藏层）</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>更新结构</strong></td>
+                    <td>原始动量 $M_t$</td>
+                    <td>逐元素二阶矩归一化</td>
+                    <td>矩阵极因子 $UV^\top$（五阶 Newton-Schulz）</td>
+                  </tr>
+                  <tr>
+                    <td><strong>适用参数</strong></td>
+                    <td>全部参数</td>
+                    <td>全部参数（含 1D、Embedding、Head）</td>
+                    <td>仅二维隐藏层矩阵，其余配 AdamW</td>
+                  </tr>
+                  <tr>
+                    <td><strong>核心强项</strong></td>
+                    <td>理论干净、显存开销最小</td>
+                    <td>自适应尺度稳健，后期收敛平滑</td>
+                    <td>重尾/异质数据前期推进极快，省 30%–50% token</td>
+                  </tr>
+                  <tr>
+                    <td><strong>主要风险</strong></td>
+                    <td>Transformer 高条件数下收敛极慢</td>
+                    <td>无法从矩阵谱层面消除行列耦合各向异性</td>
+                    <td>缺乏尺度衰减时易在谷底震荡，对 LR Decay 敏感</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="note-callout">
+              <p class="note-callout-title">三条落地建议</p>
+              <ol>
+                <li><strong>参数分层搭配</strong>：隐藏层二维权重矩阵（Attention / FFN）用 Muon，Embedding、LM Head、Bias 与归一化层保持 AdamW。</li>
+                <li><strong>匹配学习率衰减或两阶段切换</strong>：不要用恒定学习率把 Muon 跑到底；要么配合针对 Muon 标定过的学习率衰减（decay schedule），要么采用「前期 Muon 快速下山，后期切换 GD / AdamW 精细收尾」的两阶段调度。</li>
+                <li><strong>先确认问题形态</strong>：在数据分布重尾、层内条件数高的大规模预训练中，Muon 的收益最明显；如果本身处于小学习率微调或接近收敛的局部精修阶段，普通 AdamW 往往更稳。</li>
+              </ol>
+            </div>
+          </section>
+
+          <section id="references">
+            <h2>参考资料</h2>
+            <ul>
+              <li>Jordan, K., Jin, Y., Boza, V., et al. (2024). <em>Muon: An Optimizer for Hidden Layers in Neural Networks</em>. <a href="https://kellerjordan.github.io/posts/muon/">kellerjordan.github.io/posts/muon</a></li>
+              <li>Kim, J., Nichani, E., Wu, D., Bietti, A., &amp; Lee, J. D. (2026). <em>Sharp Capacity Scaling of Spectral Optimizers in Learning Associative Memory</em>. <a href="https://arxiv.org/abs/2603.26554">arXiv:2603.26554</a></li>
+              <li><em>Towards Understanding the Power and Limits of the Muon Optimizer: A River-Valley Perspective</em>. <a href="https://arxiv.org/abs/2606.21514">arXiv:2606.21514</a></li>
+            </ul>
+          </section>
+        </article>
+      </main>
+
+      <footer class="site-footer">
+        <span>© 2026 Chuyang Wei</span>
+        <a href="../">All Notes</a>
+        <a href="../../">Home</a>
+        <a href="../../cv/">CV</a>
+      </footer>
+    </div>
+  </body>
+</html>

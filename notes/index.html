@@ -7,7 +7,7 @@
     <title>Notes | Chuyang Wei</title>
     <meta
       name="description"
-      content="Research notes and technical surveys by Chuyang Wei on RSI, Benchmark RSI, agents, diffusion RL, and time series."
+      content="Research notes and technical surveys by Chuyang Wei on Benchmark RSI, Agent post-training, optimization, context attribution, retrieval, diffusion RL, and time series."
     />
     <link rel="canonical" href="https://weichy9218.github.io/notes/" />
     <link rel="icon" href="../assets/profile/favicon.svg" type="image/svg+xml" />
@@ -40,171 +40,223 @@
           <p class="eyebrow">THE NOTEBOOK / 2025 – 2026</p>
           <h1>Notes.</h1>
           <p class="section-intro">
-            Research notes, paper readings, and technical surveys, mostly in
-            Chinese.
+            Research notes, paper readings, and mathematical derivations, grouped by topic and mostly written in Chinese.
           </p>
-          <div class="publication-list">
-            <article class="publication">
-              <div class="venue"><time>2026.11</time></div>
-              <div>
-                <h3>
-                  <a href="https://zgcagi.github.io/Frontier-Benchmark/"
-                    >2026 前沿 AI 评测的范式变化 ↗</a
-                  >
-                </h3>
-                <p class="paper-summary">
-                  从 AA v5.0 换榜与旧榜饱和切入，拆解从代码仓库到物理世界五大领域 10
-                  个前沿基准案例与 16 套构建参数，讨论 Model × Harness × Environment
-                  共同进化（Benchmark RSI）。
-                </p>
-                <a
-                  class="paper-link"
-                  href="https://zgcagi.github.io/Frontier-Benchmark/"
-                  >Live Blog ↗</a
-                ><a
-                  class="paper-link"
-                  href="https://github.com/zgcagi/Frontier-Benchmark"
-                  >GitHub ↗</a
-                >
-              </div>
-            </article>
+          <nav class="notes-toc" aria-label="Note topics">
+            <a href="#benchmark-rsi">Benchmark &amp; RSI (2)</a>
+            <a href="#post-training">Post-Training &amp; Optimization (4)</a>
+            <a href="#context-systems">Context, Retrieval &amp; Systems (3)</a>
+            <a href="#foundations">Sequence, Diffusion &amp; Foundations (3)</a>
+          </nav>
 
-            <article class="publication">
-              <div class="venue"><time>2026.11</time></div>
-              <div>
-                <h3>
-                  <a href="./liquid-ai-tianshu-interview/"
-                    >验证速度决定迭代上限 ↗</a
+          <section class="notes-group" id="benchmark-rsi">
+            <div class="notes-group-head">
+              <h2>Benchmark &amp; RSI</h2>
+              <span class="notes-group-count">2 notes</span>
+            </div>
+            <div class="publication-list">
+              <article class="publication">
+                <div class="venue"><time>2026.11</time></div>
+                <div>
+                  <h3>
+                    <a href="https://zgcagi.github.io/Frontier-Benchmark/"
+                      >2026 前沿 AI 评测的范式变化 ↗</a
+                    >
+                  </h3>
+                  <p class="paper-summary">
+                    拆解 5 大领域 10 个前沿基准案例与 16 套构建参数，讨论 Model × Harness × Environment 共同进化（Benchmark RSI）。
+                  </p>
+                  <a
+                    class="paper-link"
+                    href="https://zgcagi.github.io/Frontier-Benchmark/"
+                    >Live Blog ↗</a
+                  ><a
+                    class="paper-link"
+                    href="https://github.com/zgcagi/Frontier-Benchmark"
+                    >GitHub ↗</a
                   >
-                </h3>
-                <p class="paper-summary">
-                  Liquid AI 于天舒访谈技术笔记：端侧硬件约束、Data Scaling、多轮 Agent
-                  RL、Benchmark 闭环与 RSI 验证速度瓶颈。
-                </p>
-              </div>
-            </article>
+                </div>
+              </article>
 
-            <article class="publication">
-              <div class="venue"><time>2026.05</time></div>
-              <div>
-                <h3>
-                  <a href="./acc-long-context-training/"
-                    >Agent 长上下文训练机制剖析：Mask 机制、多轮 SFT 监督盲区与 ACC 轨迹编译 ↗</a
-                  >
-                </h3>
-                <p class="paper-summary">
-                  区分 Attention Mask 与 Label/Loss Mask、拆解多轮 Agent SFT 的损失权重失衡，精读 ACC
-                  （Search/SWE/SQL 轨迹编译）在 MRCR / GraphWalks 的完整实验、消融与 MoE 专家特化分析。
-                </p>
-              </div>
-            </article>
+              <article class="publication">
+                <div class="venue"><time>2026.11</time></div>
+                <div>
+                  <h3>
+                    <a href="./liquid-ai-tianshu-interview/"
+                      >验证速度决定迭代上限 ↗</a
+                    >
+                  </h3>
+                  <p class="paper-summary">
+                    Liquid AI 于天舒访谈笔记：Data Scaling 与数据体感、多轮沙盒 RL 工程周转，以及限制 RSI 迭代频率的验证延迟瓶颈。
+                  </p>
+                </div>
+              </article>
+            </div>
+          </section>
 
-            <article class="publication">
-              <div class="venue"><time>2026.05</time></div>
-              <div>
-                <h3>
-                  <a href="./on-policy-distillation/"
-                    >On-Policy Distillation（OPD）深度调研：Reverse KL 原理、Forking Token 与适用边界 ↗</a
-                  >
-                </h3>
-                <p class="paper-summary">
-                  从 SFT / RL / OPD 二维象限出发，推导 Forward vs Reverse KL 与逐 token 奖励，分析
-                  AIME'24 与持续学习行为恢复实验、Forking Token 机制，以及 Support 与 Thinking Pattern 一致性边界。
-                </p>
-              </div>
-            </article>
+          <section class="notes-group" id="post-training">
+            <div class="notes-group-head">
+              <h2>Post-Training &amp; Optimization</h2>
+              <span class="notes-group-count">4 notes</span>
+            </div>
+            <div class="publication-list">
+              <article class="publication">
+                <div class="venue"><time>2026.06</time></div>
+                <div>
+                  <h3>
+                    <a href="./muon-optimizer/"
+                      >Muon 为什么前期快、后期震荡 ↗</a
+                    >
+                  </h3>
+                  <p class="paper-summary">
+                    拆解矩阵符号正交化与五阶 Newton-Schulz 近似，结合重尾联想记忆与河谷动力学解释 Muon 前期加速与谷底震荡。
+                  </p>
+                </div>
+              </article>
 
-            <article class="publication">
-              <div class="venue"><time>2026.01</time></div>
-              <div>
-                <h3>
-                  <a href="./retrieval-bm25/"
-                    >信息检索经典方案推导：从概率排序原理（BIM）到 BM25 与现代混合检索 ↗</a
-                  >
-                </h3>
-                <p class="paper-summary">
-                  零跳步数学推导 PRP → 贝叶斯赔率 → BIM → IDF 平滑 → 隐变量 Eliteness 词频饱和证明 → BM25
-                  完整公式与超参边界，并串联现代多阶段混合检索漏斗。
-                </p>
-              </div>
-            </article>
+              <article class="publication">
+                <div class="venue"><time>2026.05</time></div>
+                <div>
+                  <h3>
+                    <a href="./acc-long-context-training/"
+                      >为什么多轮 Agent SFT 学不好长上下文 ↗</a
+                    >
+                  </h3>
+                  <p class="paper-summary">
+                    区分 Attention Mask 与 Loss Mask、量化多轮 SFT 监督盲区，精读 ACC 轨迹编译实验、消融与 MoE 专家特化。
+                  </p>
+                </div>
+              </article>
 
-            <article class="publication">
-              <div class="venue"><time>2025.12</time></div>
-              <div>
-                <h3>
-                  <a href="./context-attribution/"
-                    >LLM 上下文归因方法调研：从扰动法、积分梯度到 CAGE 因果归因图 ↗</a
-                  >
-                </h3>
-                <p class="paper-summary">
-                  系统梳理黑盒扰动（CLP / ReAGent / AttriBoT / ContextCite）、积分梯度公理推导、线性化
-                  Transformer（IG×Attention）、多步因果归因图 CAGE（Y = A(I−A)⁻¹）实验与反事实忠实度评测。
-                </p>
-              </div>
-            </article>
+              <article class="publication">
+                <div class="venue"><time>2026.05</time></div>
+                <div>
+                  <h3>
+                    <a href="./on-policy-distillation/"
+                      >OPD 为什么比 RL 省算力，以及何时失效 ↗</a
+                    >
+                  </h3>
+                  <p class="paper-summary">
+                    推导 Forward 与 Reverse KL 及逐 token 奖励，分析 Forking Token 现象、AIME 与行为恢复实验，以及 Support 与思维模式一致性边界。
+                  </p>
+                </div>
+              </article>
 
-            <article class="publication">
-              <div class="venue"><time>2025.09</time></div>
-              <div>
-                <h3>
-                  <a href="./time-series-survey/"
-                    >时间序列调研：方法脉络、大模型范式与模型空间实践 ↗</a
-                  >
-                </h3>
-                <p class="paper-summary">
-                  完整梳理时间序列数据特性、四大任务与核心痛点，从传统统计、CNN/RNN、Transformer、Linear、Diffusion、SSM/Mamba
-                  到时序大模型（Time-LLM / TimeCMA / Chronos / TimesFM / Time-MoE）与
-                  Agent 框架，以及模型空间学习（MSL/ESN）科研实践（含 36 幅架构与实验图及完整推导）。
-                </p>
-              </div>
-            </article>
+              <article class="publication">
+                <div class="venue"><time>2026.01</time></div>
+                <div>
+                  <h3>
+                    <a href="./mirothinker-training/"
+                      >用交互深度换参数量：MiroThinker 三阶段后训练拆解 ↗</a
+                    >
+                  </h3>
+                  <p class="paper-summary">
+                    拆解 256K 近邻观察截断、SFT 掩码、DPO 加辅助 SFT，以及打破长尾等待的流式异步 GRPO 与 8 项研究基准结果。
+                  </p>
+                </div>
+              </article>
+            </div>
+          </section>
 
-            <article class="publication">
-              <div class="venue"><time>2025.07</time></div>
-              <div>
-                <h3>
-                  <a href="./diffusion-rl/"
-                    >Diffusion × RL：理论推导、Diffuser 精读与代表算法实验对比 ↗</a
-                  >
-                </h3>
-                <p class="paper-summary">
-                  完整推导 DDPM 与控制即推理条件引导采样，精读 Diffuser（ICML 2022）算法及
-                  Maze2D / Block Stacking / MuJoCo 实验结果与消融，并对比 Diffusion Policy、DDPO、QSM 与 GenPO。
-                </p>
-              </div>
-            </article>
+          <section class="notes-group" id="context-systems">
+            <div class="notes-group-head">
+              <h2>Context, Retrieval &amp; Systems</h2>
+              <span class="notes-group-count">3 notes</span>
+            </div>
+            <div class="publication-list">
+              <article class="publication">
+                <div class="venue"><time>2026.01</time></div>
+                <div>
+                  <h3>
+                    <a href="./retrieval-bm25/"
+                      >BM25 的概率由来：为什么词频必须饱和 ↗</a
+                    >
+                  </h3>
+                  <p class="paper-summary">
+                    从概率排序原理、BIM 与隐变量 Eliteness 零跳步推出 BM25 词频饱和与长度归一化，并定位现代多阶段混合检索漏斗。
+                  </p>
+                </div>
+              </article>
 
-            <article class="publication">
-              <div class="venue"><time>2025.07</time></div>
-              <div>
-                <h3>
-                  <a href="./mcp/"
-                    >MCP 协议深度笔记：架构机制、安全边界与 Agent 工程取舍 ↗</a
-                  >
-                </h3>
-                <p class="paper-summary">
-                  拆解 Function Calling / MCP / Agent 边界、Host–Client–Server 与 stdio / Streamable HTTP
-                  传输层、JSON-RPC 生命周期、安全威胁模型（Tool Poisoning / Rug Pull / Confused Deputy）及上下文膨胀工程对策。
-                </p>
-              </div>
-            </article>
+              <article class="publication">
+                <div class="venue"><time>2025.12</time></div>
+                <div>
+                  <h3>
+                    <a href="./context-attribution/"
+                      >长推理链归因为何断裂：从扰动法到 CAGE 因果图 ↗</a
+                    >
+                  </h3>
+                  <p class="paper-summary">
+                    梳理黑盒扰动、积分梯度与线性化注意力，剖析多步推理归因断裂以及 CAGE 因果图传播（Y = A(I−A)⁻¹）与反事实评测。
+                  </p>
+                </div>
+              </article>
 
-            <article class="publication">
-              <div class="venue"><time>2025.02</time></div>
-              <div>
-                <h3>
-                  <a href="./gpt-2-reading/"
-                    >GPT-2 论文精读：理论假设、工程细节与零样本实验全析 ↗</a
-                  >
-                </h3>
-                <p class="paper-summary">
-                  精读 Radford et al. (2019)：无监督多任务条件建模、WebText 过滤、Byte-level BPE 与 Pre-LN
-                  工程细节，还原 Table 3/4/6 完整定量结果、8-gram 泄漏分析与泛化边界结论。
-                </p>
-              </div>
-            </article>
-          </div>
+              <article class="publication">
+                <div class="venue"><time>2025.07</time></div>
+                <div>
+                  <h3>
+                    <a href="./mcp/"
+                      >MCP 统一了工具接口，但把上下文账单转给了 Agent ↗</a
+                    >
+                  </h3>
+                  <p class="paper-summary">
+                    划清 Function Calling / MCP / Agent 边界，拆解传输层机制、四类安全攻击面，以及多工具上下文膨胀的工程解法。
+                  </p>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="notes-group" id="foundations">
+            <div class="notes-group-head">
+              <h2>Sequence, Diffusion &amp; Foundations</h2>
+              <span class="notes-group-count">3 notes</span>
+            </div>
+            <div class="publication-list">
+              <article class="publication">
+                <div class="venue"><time>2025.09</time></div>
+                <div>
+                  <h3>
+                    <a href="./time-series-survey/"
+                      >时间序列建模演进：从统计分解、大模型到模型空间 ↗</a
+                    >
+                  </h3>
+                  <p class="paper-summary">
+                    梳理非平稳建模挑战、从统计/Linear/Diffusion/Mamba 到时序基座与 Agent 框架，及模型空间学习（MSL/ESN）实践（含 36 幅原图）。
+                  </p>
+                </div>
+              </article>
+
+              <article class="publication">
+                <div class="venue"><time>2025.07</time></div>
+                <div>
+                  <h3>
+                    <a href="./diffusion-rl/"
+                      >扩散模型与强化学习：把轨迹规划写成条件采样 ↗</a
+                    >
+                  </h3>
+                  <p class="paper-summary">
+                    区分 Diffusion for RL 与 RL for Diffusion，推导引导采样，精读 Diffuser 完整实验并对比 Diffusion Policy、DDPO、QSM 与 GenPO。
+                  </p>
+                </div>
+              </article>
+
+              <article class="publication">
+                <div class="venue"><time>2025.02</time></div>
+                <div>
+                  <h3>
+                    <a href="./gpt-2-reading/"
+                      >重读 GPT-2：多任务能力如何从语言建模里长出来 ↗</a
+                    >
+                  </h3>
+                  <p class="paper-summary">
+                    精读 Radford et al. (2019)：条件多任务假设、WebText / Byte-BPE / Pre-LN 工程细节、零样本定量表格与 8-gram 重叠排查。
+                  </p>
+                </div>
+              </article>
+            </div>
+          </section>
         </section>
       </main>
       <footer class="site-footer">

@@ -4,14 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>GPT-2 论文精读：理论假设、工程细节与零样本实验全析 | Chuyang Wei</title>
+    <title>重读 GPT-2：多任务能力如何从语言建模里长出来 | Chuyang Wei</title>
     <meta
       name="description"
       content="系统精读 Radford et al. (2019) GPT-2 论文：p(output|input,task) 无监督多任务理论假设、WebText 过滤、Byte-level BPE 与 Pre-LN 细节，完整还原 Table 3/4/6 定量实验、8-gram 泄漏分析与历史启示。"
     />
     <link rel="canonical" href="https://weichy9218.github.io/notes/gpt-2-reading/" />
     <meta property="og:type" content="article" />
-    <meta property="og:title" content="GPT-2 论文精读：理论假设、工程细节与零样本实验全析" />
+    <meta property="og:title" content="重读 GPT-2：多任务能力如何从语言建模里长出来" />
     <meta
       property="og:description"
       content="从理论假设、WebText、Byte-BPE/Pre-LN 到 Table 3/4/6 定量结果与记忆/泛化剖析，完整精读 GPT-2 原论文。"
@@ -50,10 +50,10 @@
       <main class="note-main" id="main">
         <article class="note-article">
           <header class="note-header">
-            <p class="eyebrow">PAPER READING · 2025-02-19</p>
-            <h1>GPT-2 论文精读：理论假设、工程细节与零样本实验全析</h1>
+            <p class="eyebrow">PAPER READING | 2025-02-19</p>
+            <h1>重读 GPT-2：多任务能力如何从语言建模里长出来</h1>
             <p class="note-meta">
-              Chuyang Wei · Radford et al., OpenAI (2019), <em>Language Models are Unsupervised Multitask Learners</em>
+              Radford et al., OpenAI (2019), <em>Language Models are Unsupervised Multitask Learners</em>
             </p>
           </header>
 
@@ -63,7 +63,7 @@
           </p>
 
           <section id="theory">
-            <h2>一、理论动机：从 $p(\text{output} \mid \text{input})$ 到 $p(\text{output} \mid \text{input}, \text{task})$</h2>
+            <h2>1. 核心假设：为什么无监督语言建模能覆盖有监督多任务目标？</h2>
             <p>
               标准语言建模将一段符号序列 $(s_1, s_2, \dots, s_n)$ 的联合概率分解为条件概率连乘：
             </p>
@@ -78,13 +78,13 @@
             <div class="note-callout">
               <p class="note-callout-title">无监督多任务学习的核心推论</p>
               <p>
-                由于自然语言本身能把“任务描述、输入与输出”全都装进同一串文本里（例如一段网页文本天然包含“<code>translate to french, english text, french text</code>”或“<code>Q: ... A: ...</code>”），那么<strong>任意有监督任务的目标，本质上只是大规模无监督语言建模目标的一个子集</strong>。因此，无监督语言模型的全局最优解，与所有包含在语料分布中的有监督任务的全局最优解是一致的——问题不再是“目标函数对不对”，而是<strong>模型容量和训练步数够不够逼近这个最优解</strong>。
+                由于自然语言本身能把“任务描述、输入与输出”全都装进同一串文本里（例如一段网页文本天然包含“<code>translate to french, english text, french text</code>”或“<code>Q: ... A: ...</code>”），那么<strong>任意有监督任务的目标，本质上只是大规模无监督语言建模目标的一个子集</strong>。因此，无监督语言模型的全局最优解，与所有包含在语料分布中的有监督任务的全局最优解是一致的：问题不再是“目标函数对不对”，而是<strong>模型容量和训练步数够不够逼近这个最优解</strong>。
               </p>
             </div>
           </section>
 
           <section id="data-and-arch">
-            <h2>二、数据构建与模型工程细节</h2>
+            <h2>2. 数据与架构的四个关键取舍：WebText、Byte-BPE、Pre-LN 与残差缩放</h2>
 
             <h3>2.1 WebText：用社区信号替代昂贵人工标注</h3>
             <p>
@@ -158,7 +158,7 @@
           </section>
 
           <section id="experiments">
-            <h2>三、实验设计与核心定量结果</h2>
+            <h2>3. 零样本定量实验：1.5B 在哪些任务胜过专模，又在哪些任务受限？</h2>
             <p>
               所有下游评测均在<strong>严格 Zero-Shot（零微调、零任务梯度更新）</strong>条件下完成。评测语言建模时，作者使用可逆反分词器（invertible de-tokenizer）消除旧基准人为留下的空格/标点伪影（仅此一项就带来 2.5–5 PPL 收益），并按原基准单位严格换算概率。
             </p>
@@ -255,7 +255,7 @@
                 <strong>7/8 语言建模基准零样本刷新 SOTA</strong>：尤其在小数据集（PTB、WikiText-2，训练集仅 100–200 万词）与长程依赖任务（LAMBADA 困惑度从 99.8 骤降至 <strong>8.63</strong>，裸准确率 52.66%，加停用词过滤升至 <strong>63.24%</strong>）上提升极其悬殊。
               </li>
               <li>
-                <strong>唯一显著落后的 1BW（42.16 vs. 21.8）为何掉队？</strong>因为 1BW 是最大且预处理破坏最严重的基准——它把句子顺序全部打乱（sentence-level shuffling），直接剥夺了 GPT-2 跨句长程上下文的最大优势。
+                <strong>唯一显著落后的 1BW（42.16 vs. 21.8）为何掉队？</strong>因为 1BW 是最大且预处理破坏最严重的基准：它把句子顺序全部打乱（sentence-level shuffling），直接剥夺了 GPT-2 跨句长程上下文的优势。
               </li>
             </ul>
 
@@ -336,13 +336,13 @@
                 <strong>WMT-14 机器翻译</strong>：尽管 WebText 刻意过滤了非英语网页、只剩约 <strong>10MB 法语文本</strong>，通过上下文示范 <code>english = french</code>，GPT-2 在 <strong>En→Fr 拿到 5.0 BLEU</strong>，在 <strong>Fr→En 拿到 11.5 BLEU</strong>（强英语生成先验明显利好译入英语，已超过部分早年无监督神经机器翻译基线）。
               </li>
               <li>
-                <strong>Natural Questions 闭卷问答（原论文 Table 5）</strong>：即便零样本总体 EM 只有 4.1%，但模型自身输出的概率<strong>校准度极高</strong>——在置信度最高的 1% 回答上准确率达到 63.1%，排名前 30 的高置信答案几乎全对（且经排查均未出现在 WebText 中）。
+                <strong>Natural Questions 闭卷问答（原论文 Table 5）</strong>：即便零样本总体 EM 只有 4.1%，但模型自身输出的概率<strong>校准度极高</strong>：在置信度最高的 1% 回答上准确率达到 63.1%，排名前 30 的高置信答案几乎全对（且经排查均未出现在 WebText 中）。
               </li>
             </ul>
           </section>
 
           <section id="memorization">
-            <h2>四、泛化 vs. 记忆：8-gram 数据泄漏排查（原论文 Table 6）</h2>
+            <h2>4. 是泛化还是背题？8-gram 数据重叠排查（Table 6）</h2>
             <p>
               质疑零样本结果最常见的一句反问是：“是不是测试集早就混进 40GB 的 WebText 里被模型背下来了？”论文第 4 节专门用假阳性率上限 $10^{-8}$ 的 <strong>8-gram Bloom Filter</strong> 做了极严格的交叉重叠检测：
             </p>
@@ -385,21 +385,21 @@
               </table>
             </div>
             <p>
-              结果颇为反直觉：主流 LM 测试集与 WebText 的平均重叠率仅 <strong>3.2%</strong>，甚至<strong>明显低于它们与各自官方训练集的平均重叠率（5.9%，其中 1BW 自身泄漏高达 13.19%）</strong>；Winograd 273 题里真正有实质上下文重叠的仅 1 题。此外，WebText 训练集与测试集上的 loss 曲线几乎贴合且仍在同步下降——说明 1.5B 模型此时处于<strong>明显欠拟合（Underfitting）</strong>状态，远未靠死记硬背刷分。
+              结果颇为反直觉：主流 LM 测试集与 WebText 的平均重叠率仅 <strong>3.2%</strong>，甚至<strong>明显低于它们与各自官方训练集的平均重叠率（5.9%，其中 1BW 自身泄漏高达 13.19%）</strong>；Winograd 273 题里真正有实质上下文重叠的仅 1 题。此外，WebText 训练集与测试集上的 loss 曲线几乎贴合且仍在同步下降，说明 1.5B 模型此时处于<strong>明显欠拟合（Underfitting）</strong>状态，远未靠死记硬背刷分。
             </p>
           </section>
 
           <section id="conclusion">
-            <h2>五、结论与历史定位</h2>
+            <h2>5. 历史定位与三点技术启示</h2>
             <ol>
               <li>
-                <strong>证明了无监督缩放的连续收益</strong>：从 117M 到 1.5B，几乎所有任务指标都随参数量呈平滑的对数线性改善，且完全没有触顶迹象——这直接催生了次年的 <em>Scaling Laws</em>（Kaplan et al., 2020）和 <em>GPT-3</em>（175B, Brown et al., 2020）。
+                <strong>证明了无监督缩放的连续收益</strong>：从 117M 到 1.5B，几乎所有任务指标都随参数量呈平滑的对数线性改善，且没有触顶迹象，这直接催生了次年的 <em>Scaling Laws</em>（Kaplan et al., 2020）和 <em>GPT-3</em>（175B, Brown et al., 2020）。
               </li>
               <li>
                 <strong>确立了后代 LLM 的基础工程模板</strong>：Byte-level BPE、Pre-LN 残差结构、深度缩放初始化、启发式高质量网页过滤、以及基于 n-gram 去重/污染审计，此后多年一直是预训练的标准起手式。
               </li>
               <li>
-                <strong>诚实划清了 1.5B 的能力边界</strong>：论文并未夸大零样本结果——它在摘要、翻译与复杂阅读理解上明确弱于有监督专模，也解释了为什么后续必须靠更大规模（GPT-3 的 Few-shot In-Context Learning）以及指令微调 / RLHF 才能把潜藏能力稳定释放出来。
+                <strong>诚实划清了 1.5B 的能力边界</strong>：论文并未夸大零样本结果，它在摘要、翻译与复杂阅读理解上明确弱于有监督专模，也解释了为什么后续必须靠更大规模（GPT-3 的 Few-shot In-Context Learning）以及指令微调 / RLHF 才能把潜藏能力稳定释放出来。
               </li>
             </ol>
           </section>

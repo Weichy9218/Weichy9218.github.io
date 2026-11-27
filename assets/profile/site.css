@@ -371,12 +371,55 @@ h3 {
 .notes-main h1 {
   font-size: 32px;
 }
+.notes-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 18px 0 8px;
+  font-size: 13px;
+}
+.notes-toc a {
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+}
+.notes-toc a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+.notes-group {
+  margin-top: 36px;
+}
+.notes-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ink);
+}
+.notes-group-head h2 {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--ink);
+}
+.notes-group-count {
+  font-size: 12px;
+  color: var(--muted);
+}
 .notes-main .publication-list {
-  margin-top: 30px;
+  margin-top: 6px;
 }
 .notes-main .publication {
   padding: 14px 0;
   border-bottom: 1px solid var(--line);
+}
+.notes-main .publication + .publication {
+  margin-top: 0;
 }
 .note-main {
   padding: 42px 0 56px;
