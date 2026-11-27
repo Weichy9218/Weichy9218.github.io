@@ -7,14 +7,14 @@
     <title>Chuyang Wei | AI Research</title>
     <meta
       name="description"
-      content="Chuyang Wei is a Ph.D. student at USTC and Beijing Zhongguancun Academy researching self-evolving LLM agents, open-world forecasting, and harness–model co-evolution."
+      content="Chuyang Wei is a Ph.D. student at USTC and Beijing Zhongguancun Academy researching self-improving LLM agents, delayed feedback, RSI, and Benchmark RSI."
     />
     <link rel="canonical" href="https://weichy9218.github.io/" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Chuyang Wei | AI Research" />
     <meta
       property="og:description"
-      content="Research in self-evolving agents, open-world forecasting, and harness–model co-evolution. USTC × Beijing Zhongguancun Academy."
+      content="Research in self-improving agents, delayed feedback, RSI, and Benchmark RSI. USTC × Beijing Zhongguancun Academy."
     />
     <meta property="og:url" content="https://weichy9218.github.io/" />
     <meta
@@ -30,13 +30,12 @@
     <a class="skip-link" href="#main">Skip to content</a>
     <div class="page">
       <header class="site-header">
-        <a class="wordmark" href="#main" aria-label="Chuyang Wei home"
+        <a class="wordmark" href="./" aria-label="Chuyang Wei home"
           >CW<span> / Research</span></a
         >
         <nav aria-label="Main navigation">
-          <a href="#research">Research</a><a href="#work">Projects</a
-          ><a href="#publications">Publications</a><a href="notes/">Notes</a
-          ><a href="cv/">CV</a>
+          <a href="./" class="nav-active" aria-current="page">Home</a
+          ><a href="notes/">Notes</a><a href="cv/">CV</a>
         </nav>
         <button
           class="theme-button"
@@ -48,31 +47,32 @@
           <span aria-hidden="true">◐</span>
         </button>
       </header>
+
       <main id="main">
         <section class="profile" aria-labelledby="name">
           <div class="profile-copy">
             <h1 id="name">Chuyang Wei</h1>
             <p class="position">
-              Ph.D. Student in Computer Science and Technology
+              Ph.D. Student in Computer Science · USTC × Beijing Zhongguancun
+              Academy
             </p>
             <p>
-              I’m a Ph.D. student at the
-              <a href="https://en.ustc.edu.cn/"
-                >University of Science and Technology of China</a
-              >, jointly trained at Beijing Zhongguancun Academy.
-            </p>
-            <p>
-              I study <strong>self-improving agents</strong>: learning from
-              delayed feedback, acquiring reusable skills, and transferring
-              experience from agent harnesses into model weights. My work uses
+              I study <strong>self-improving LLM agents</strong>: learning from
+              delayed feedback, evolving persistent agent harnesses, and
+              internalizing reusable experience into model weights, using
               open-world forecasting as a testbed.
+            </p>
+            <p>
+              Currently focusing on
+              <strong>Recursive Self-Improvement (RSI)</strong> and
+              <strong>Benchmark RSI</strong> — uncovering and formalizing
+              genuine, hard problems where self-improvement truly matters.
             </p>
             <div class="profile-links">
               <a href="mailto:weichy2023@mail.ustc.edu.cn">Email</a
               ><a href="https://scholar.google.com/citations?user=JhuC3_cAAAAJ"
                 >Google Scholar</a
-              ><a href="https://github.com/Weichy9218">GitHub</a
-              ><a href="notes/">Notes</a><a href="cv/">CV</a>
+              ><a href="https://github.com/Weichy9218">GitHub</a>
             </div>
           </div>
           <figure class="portrait">
@@ -86,219 +86,95 @@
             <figcaption>Stay hungry.<br />Stay foolish.</figcaption>
           </figure>
         </section>
-        <div class="current-focus">
-          <span class="label">Current focus</span>
-          <p>
-            <abbr title="Recursive self-improvement">RSI</abbr
-            ><span class="separator" aria-hidden="true"> / </span>Loop
-            Transformer
-          </p>
-          <span class="updated">October 2026</span>
-        </div>
-        <section
-          class="content-section"
-          id="research"
-          aria-labelledby="research-title"
-        >
-          <h2 id="research-title">Research interests</h2>
-          <dl class="research-list">
-            <div>
-              <dt>Recursive self-improvement</dt>
-              <dd>
-                Improving agent harnesses through experience and internalizing
-                reusable strategies through on-policy training.
-              </dd>
-            </div>
-            <div>
-              <dt>Learning with delayed feedback</dt>
-              <dd>
-                Using temporal evidence before outcomes resolve for credit
-                assignment, self-correction, and calibration.
-              </dd>
-            </div>
-            <div>
-              <dt>Loop Transformer</dt>
-              <dd>
-                Recurrent computation and iterative refinement for reasoning.
-              </dd>
-            </div>
-          </dl>
-        </section>
-        <section class="content-section" id="work" aria-labelledby="work-title">
-          <div class="section-heading">
-            <h2 id="work-title">Selected projects</h2>
-            <a
-              class="more-link"
-              href="https://github.com/Weichy9218?tab=repositories"
-              >All repositories ↗</a
-            >
-          </div>
-          <div class="project-list">
-            <article class="project">
-              <div class="project-heading">
-                <h3>Milkyway</h3>
-                <span class="project-kind">Forecasting agent</span>
-              </div>
-              <p>
-                I contributed to Milkyway, which previously ranked
-                <strong>first on the public FutureX leaderboard</strong>. My
-                work focuses on search infrastructure, forecasting workflows,
-                and learning from evidence gathered before outcomes resolve.
-              </p>
-              <div class="item-links">
-                <a href="https://arxiv.org/abs/2604.15719">Paper</a>
-              </div>
-            </article>
-            <article class="project">
-              <div class="project-heading">
-                <h3>
-                  <a href="https://github.com/Weichy9218/FutureWorld-offline"
-                    >FutureWorld Offline</a
-                  >
-                </h3>
-                <span class="project-kind">Benchmark</span>
-              </div>
-              <p>
-                Versioned forecasting questions with resolved outcomes, temporal
-                boundaries, and reproducible scoring.
-              </p>
-              <div class="item-links">
-                <a href="https://github.com/Weichy9218/FutureWorld-offline"
-                  >Code</a
-                ><a
-                  href="https://huggingface.co/datasets/weichy2023/FutureWorldv2"
-                  >Dataset</a
-                >
-              </div>
-            </article>
-            <article class="project">
-              <div class="project-heading">
-                <h3>
-                  <a href="https://github.com/Weichy9218/future-prediction-SDK"
-                    >Futurecast</a
-                  >
-                </h3>
-                <span class="project-kind">Agent infrastructure</span>
-              </div>
-              <p>
-                Tools, prompts, and reusable skills for forecasting with
-                existing agent runtimes.
-              </p>
-              <div class="item-links">
-                <a href="https://github.com/Weichy9218/future-prediction-SDK"
-                  >Code</a
-                >
-              </div>
-            </article>
-            <article class="project">
-              <div class="project-heading">
-                <h3>
-                  <a href="https://github.com/zgcagi/Harness-RSI"
-                    >Harness-RSI</a
-                  >
-                </h3>
-                <span class="project-kind">Reading list &amp; website</span>
-              </div>
-              <p>
-                Harness self-evolution: update targets, theory, evaluation, and
-                reported evidence. Bilingual reading list and project website.
-              </p>
-              <div class="item-links">
-                <a href="https://github.com/zgcagi/Harness-RSI">GitHub</a
-                ><a href="https://zgcagi.github.io/Harness-RSI/">Website</a>
-              </div>
-            </article>
-          </div>
-        </section>
-        <section
-          class="content-section"
-          id="publications"
-          aria-labelledby="pub-title"
-        >
-          <div class="section-heading">
-            <h2 id="pub-title">Selected papers</h2>
-            <a
-              class="more-link"
-              href="https://scholar.google.com/citations?user=JhuC3_cAAAAJ"
-              >Google Scholar ↗</a
-            >
-          </div>
 
-          <h3 class="paper-group-heading">
-            Agents, forecasting &amp; self-improvement
-          </h3>
+        <section class="content-section" id="news" aria-labelledby="news-title">
+          <h2 id="news-title">News</h2>
+          <ul class="news-list">
+            <li>
+              <time>2026.11</time>
+              <span
+                >Posted a new note:
+                <a href="notes/liquid-ai-tianshu-interview/"
+                  >验证速度决定迭代上限</a
+                >
+                (Liquid AI interview takeaways).</span
+              >
+            </li>
+            <li>
+              <time>2026.10</time>
+              <span
+                ><strong>DEEPRUBRIC</strong> accepted to
+                <strong>EMNLP 2026</strong>.</span
+              >
+            </li>
+            <li>
+              <time>2026.09</time>
+              <span
+                >Released
+                <a href="https://arxiv.org/abs/2609.13356">ZGCM-1</a>, an open
+                7B model for math and agentic search.</span
+              >
+            </li>
+            <li>
+              <time>2026.04</time>
+              <span
+                >Released
+                <a href="https://arxiv.org/abs/2604.15719">Milkyway</a>
+                (formerly #1 on FutureX) and
+                <a href="https://arxiv.org/abs/2604.26733">FutureWorld</a>.</span
+              >
+            </li>
+          </ul>
+        </section>
+
+        <section
+          class="content-section"
+          id="work"
+          aria-labelledby="work-title"
+        >
+          <div class="section-heading">
+            <h2 id="work-title">Selected work</h2>
+            <a class="more-link" href="cv/#cv-publications"
+              >Full publications in CV ↗</a
+            >
+          </div>
           <div class="publication-list">
             <article class="publication">
               <div class="venue"><span>Preprint</span><time>2026</time></div>
               <div>
                 <h3>
                   <a href="https://arxiv.org/abs/2604.15719"
-                    >Harnessing Pre-Resolution Signals for Future Prediction
-                    Agents</a
+                    >Milkyway: Harnessing Pre-Resolution Signals for Future
+                    Prediction Agents</a
                   >
                 </h3>
-                <details class="author-details">
-                  <summary>
-                    <strong>Chuyang Wei</strong>, Maohang Gao, Zhixin Han, et
-                    al.<span class="author-toggle">Full authors</span>
-                  </summary>
-                  <p class="authors">
-                    <strong>Chuyang Wei</strong>, Maohang Gao, Zhixin Han, Kefei
-                    Chen, Yu Zhuang, Haoxiang Guan, Yanzhi Zhang, Yilin Cheng,
-                    Xiren Zhou, Huanhuan Chen, Jian Li, Jiyan He, Yu Shi, Yitong
-                    Duan, Shuxin Zheng
-                  </p>
-                </details>
+                <p class="authors">
+                  <strong>Chuyang Wei</strong>, Maohang Gao, Zhixin Han, et al.
+                </p>
                 <p class="paper-summary">
-                  Milkyway evolves a persistent forecasting harness using
-                  temporal evidence before outcomes resolve.
+                  Evolves a persistent forecasting harness using temporal
+                  evidence before outcomes resolve; formerly ranked 1st on the
+                  public FutureX leaderboard.
                 </p>
                 <a class="paper-link" href="https://arxiv.org/abs/2604.15719"
                   >arXiv ↗</a
                 ><a class="paper-link" href="https://arxiv.org/pdf/2604.15719"
                   >PDF ↗</a
+                ><a
+                  class="paper-link"
+                  href="https://github.com/Weichy9218/future-prediction-SDK"
+                  >Futurecast SDK ↗</a
                 >
               </div>
             </article>
-            <article class="publication">
-              <div class="venue"><span>Preprint</span><time>2026</time></div>
-              <div>
-                <h3>
-                  <a href="https://arxiv.org/abs/2604.26733"
-                    >FutureWorld: A Live Reinforcement Learning Environment for
-                    Predictive Agents with Real-World Outcome Rewards</a
-                  >
-                </h3>
-                <details class="author-details">
-                  <summary>
-                    Zhixin Han, Yanzhi Zhang, <strong>Chuyang Wei</strong>, et
-                    al.<span class="author-toggle">Full authors</span>
-                  </summary>
-                  <p class="authors">
-                    Zhixin Han, Yanzhi Zhang, <strong>Chuyang Wei</strong>,
-                    Maohang Gao, Xiawei Yue, Kefei Chen, Yu Zhuang, Haoxiang
-                    Guan, Jiyan He, Jian Li, Yitong Duan, Yu Shi, Mengting Hu,
-                    Shuxin Zheng
-                  </p>
-                </details>
-                <p class="paper-summary">
-                  A live RL environment that learns from delayed real-world
-                  outcomes through stored prediction trajectories.
-                </p>
-                <a class="paper-link" href="https://arxiv.org/abs/2604.26733"
-                  >arXiv ↗</a
-                ><a class="paper-link" href="https://arxiv.org/pdf/2604.26733"
-                  >PDF ↗</a
-                >
-              </div>
-            </article>
+
             <article class="publication">
               <div class="venue"><span>EMNLP</span><time>2026</time></div>
               <div>
                 <h3>
                   <a href="https://arxiv.org/abs/2606.17029"
                     >DEEPRUBRIC: Evidence-Tree Rubric Supervision for Efficient
-                    Reinforcement Learning of Deep Research Agents</a
+                    RL of Deep Research Agents</a
                   >
                 </h3>
                 <p class="authors">
@@ -306,7 +182,7 @@
                   Cheng, Zhumin Chen, Jiyan He
                 </p>
                 <p class="paper-summary">
-                  Evidence trees align queries and evaluation rubrics for
+                  Aligns queries and evaluation rubrics via evidence trees for
                   efficient reinforcement learning of deep research agents.
                 </p>
                 <a class="paper-link" href="https://arxiv.org/abs/2606.17029"
@@ -316,164 +192,101 @@
                 >
               </div>
             </article>
+
             <article class="publication">
               <div class="venue"><span>Preprint</span><time>2026</time></div>
               <div>
                 <h3>
-                  <a href="https://arxiv.org/abs/2609.13356"
-                    >ZGCM-1: A Fully Open and Extremely Efficient Foundation
-                    Model for Math and Agentic Search</a
+                  <a href="https://arxiv.org/abs/2604.26733"
+                    >FutureWorld: A Live RL Environment for Predictive Agents
+                    with Real-World Outcome Rewards</a
                   >
                 </h3>
-                <details class="author-details">
-                  <summary>
-                    Jiyan He et al.<span class="author-toggle"
-                      >Full authors</span
-                    >
-                  </summary>
-                  <p class="authors">
-                    Jiyan He, Guang Liang, Hao Liu, Haoxiang Guan, Jinbo Sun,
-                    Junyi Guo, Wenjun Feng, Yantai Xie, Yifei Shen, Bin Shao,
-                    <strong>Chuyang Wei</strong>, Kai Chen, Kexin Zhou, Minghang
-                    Zhu, Shuxin Zheng, Tie-Yan Liu, Taine Zhao, Wenhui Zhu,
-                    Xueyin Xu, Xiaoqing Zhang, Yatao Li, Yuxuan Ren
-                  </p>
-                </details>
+                <p class="authors">
+                  Zhixin Han, Yanzhi Zhang, <strong>Chuyang Wei</strong>, et al.
+                </p>
                 <p class="paper-summary">
-                  An open 7B foundation model and training recipe for
-                  mathematical reasoning and agentic search.
+                  Connects stored prediction trajectories, delayed outcome
+                  rewards, and reproducible offline evaluation.
                 </p>
-                <a class="paper-link" href="https://arxiv.org/abs/2609.13356"
+                <a class="paper-link" href="https://arxiv.org/abs/2604.26733"
                   >arXiv ↗</a
-                ><a class="paper-link" href="https://arxiv.org/pdf/2609.13356"
-                  >PDF ↗</a
-                >
-              </div>
-            </article>
-          </div>
-          <h3 class="paper-group-heading earlier-papers">
-            Time series &amp; representation learning
-          </h3>
-          <div class="publication-list">
-            <article class="publication">
-              <div class="venue"><span>AAAI</span><time>2026</time></div>
-              <div>
-                <h3>
-                  <a href="https://doi.org/10.1609/aaai.v40i34.40141"
-                    >Fault Diagnosis of Irregular Sequences by Adjoint Learning
-                    in Continuous-Time Model Space</a
-                  >
-                </h3>
-                <p class="authors">
-                  Xiren Zhou, <strong>Chuyang Wei</strong>, Ao Chen, Shikang
-                  Liu, Xiangyu Wang, Huanhuan Chen
-                </p>
-
-                <a
-                  class="paper-link"
-                  href="https://doi.org/10.1609/aaai.v40i34.40141"
-                  >Paper ↗</a
-                >
-              </div>
-            </article>
-            <article class="publication">
-              <div class="venue"><span>ICML</span><time>2025</time></div>
-              <div>
-                <h3>
-                  <a href="https://proceedings.mlr.press/v267/liu25by.html"
-                    >Spectral-Aware Reservoir Computing for Fast and Accurate
-                    Time Series Classification</a
-                  >
-                </h3>
-                <p class="authors">
-                  Shikang Liu, <strong>Chuyang Wei</strong>, Xiren Zhou,
-                  Huanhuan Chen
-                </p>
-
-                <a
-                  class="paper-link"
-                  href="https://proceedings.mlr.press/v267/liu25by.html"
-                  >Paper ↗</a
                 ><a
                   class="paper-link"
-                  href="https://openreview.net/forum?id=DmPW0pO3F3"
-                  >OpenReview ↗</a
+                  href="https://github.com/Weichy9218/FutureWorld-offline"
+                  >Offline Benchmark ↗</a
+                ><a
+                  class="paper-link"
+                  href="https://huggingface.co/datasets/weichy2023/FutureWorldv2"
+                  >Dataset ↗</a
                 >
               </div>
             </article>
+
             <article class="publication">
-              <div class="venue"><span>IEEE TGRS</span><time>2024</time></div>
+              <div class="venue"><span>Open Source</span><time>2026</time></div>
               <div>
                 <h3>
-                  <a href="https://doi.org/10.1109/TGRS.2024.3504715"
-                    >Enhanced Anomaly Detection in GPR Data by Combining Spatial
-                    and Dynamic Information</a
+                  <a href="https://github.com/zgcagi/Harness-RSI"
+                    >Harness-RSI</a
                   >
                 </h3>
-                <p class="authors">
-                  <strong>Chuyang Wei</strong>, Xiren Zhou, Shikang Liu,
-                  Huanhuan Chen
+                <p class="paper-summary">
+                  Bilingual reading list and project website on harness
+                  self-evolution: update targets, theory, evaluation, and
+                  reported evidence.
                 </p>
-
-                <a
-                  class="paper-link"
-                  href="https://doi.org/10.1109/TGRS.2024.3504715"
-                  >Paper ↗</a
+                <a class="paper-link" href="https://github.com/zgcagi/Harness-RSI"
+                  >GitHub ↗</a
+                ><a class="paper-link" href="https://zgcagi.github.io/Harness-RSI/"
+                  >Website ↗</a
                 >
               </div>
             </article>
           </div>
         </section>
+
         <section
           class="content-section"
-          id="education"
-          aria-labelledby="education-title"
+          id="recent-notes"
+          aria-labelledby="notes-title"
         >
-          <h2 id="education-title">Education</h2>
-          <div class="education-list">
-            <article>
-              <time>2025 – present</time>
-              <div>
-                <h3>University of Science and Technology of China</h3>
-                <p>
-                  Ph.D. in Computer Science and Technology<br />Joint training
-                  with Beijing Zhongguancun Academy
-                </p>
-              </div>
-            </article>
-            <article>
-              <time>2023 – 2025</time>
-              <div>
-                <h3>University of Science and Technology of China</h3>
-                <p>Master’s studies in Big Data Technology and Engineering</p>
-              </div>
-            </article>
-            <article>
-              <time>2019 – 2023</time>
-              <div>
-                <h3>Lanzhou University</h3>
-                <p>B.Eng. in Artificial Intelligence</p>
-              </div>
-            </article>
+          <div class="section-heading">
+            <h2 id="notes-title">Recent notes</h2>
+            <a class="more-link" href="notes/">All notes ↗</a>
           </div>
-        </section>
-        <section
-          class="content-section contact"
-          aria-labelledby="contact-title"
-        >
-          <h2 id="contact-title">Contact</h2>
-          <p>
-            I welcome conversations about self-improving AI, recurrent
-            reasoning, and forecasting.
-          </p>
-          <a href="mailto:weichy2023@mail.ustc.edu.cn"
-            >weichy2023@mail.ustc.edu.cn</a
-          >
+          <ul class="news-list">
+            <li>
+              <time>2026.11</time>
+              <span
+                ><a href="notes/liquid-ai-tianshu-interview/"
+                  >验证速度决定迭代上限 ↗</a
+                ></span
+              >
+            </li>
+            <li>
+              <time>2025.09</time>
+              <span
+                ><a href="2025/09/04/时间序列调研/">Time Series 调研 ↗</a></span
+              >
+            </li>
+            <li>
+              <time>2025.07</time>
+              <span
+                ><a href="2025/07/02/Diffusion-RL-Explore/"
+                  >Diffusion_RL_Explore ↗</a
+                ></span
+              >
+            </li>
+          </ul>
         </section>
       </main>
+
       <footer class="site-footer">
-        <span>© 2026 Chuyang Wei</span><a href="notes/">Notes ↗</a
-        ><a href="cv/">CV ↗</a><span>Stay hungry. Stay foolish.</span>
+        <span>© 2026 Chuyang Wei</span
+        ><a href="mailto:weichy2023@mail.ustc.edu.cn"
+          >weichy2023@mail.ustc.edu.cn</a
+        ><span>Stay hungry. Stay foolish.</span>
       </footer>
     </div>
   </body>
