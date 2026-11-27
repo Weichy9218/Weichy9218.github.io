@@ -4,6 +4,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 import re
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGES = [
@@ -67,6 +68,16 @@ for css_dir in ('assets/profile', 'assets/katex'):
             if not (css.parent / reference).is_file():
                 errors.append(f'Missing CSS asset: {reference}')
 
+for xml_name in ('rss.xml', 'sitemap.xml'):
+    xml_path = ROOT / xml_name
+    if not xml_path.is_file():
+        errors.append(f'Missing feed file: {xml_name}')
+    else:
+        try:
+            ET.parse(xml_path)
+        except ET.ParseError as exc:
+            errors.append(f'Invalid XML in {xml_name}: {exc}')
+
 if errors:
     raise SystemExit('\n'.join(errors))
-print('PASS: maintained pages, local assets, anchor targets, unique IDs, and image alt text')
+print('PASS: maintained pages, local assets, anchor targets, unique IDs, image alt text, and XML feeds')

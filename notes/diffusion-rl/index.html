@@ -20,6 +20,16 @@
       content="从 DDPM 引导采样数学原理出发，精读 Diffuser 完整实验结果，并对比 Diffusion Policy、DDPO、QSM 与 GenPO。"
     />
     <meta property="og:url" content="https://weichy9218.github.io/notes/diffusion-rl/" />
+    <meta
+      property="og:image"
+      content="https://weichy9218.github.io/assets/profile/chuyang-wei.png"
+    />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="Chuyang Wei | Research Notes"
+      href="https://weichy9218.github.io/rss.xml"
+    />
     <link rel="icon" href="../../assets/profile/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="../../assets/profile/fonts.css" />
     <link rel="stylesheet" href="../../assets/profile/site.css" />
@@ -36,7 +46,7 @@
         <a class="wordmark" href="../../">CW<span> / Notes</span></a>
         <nav aria-label="Main navigation">
           <a href="../../">Home</a
-          ><a href="../" class="nav-active">Notes</a
+          ><a href="../" class="nav-active" aria-current="page">Notes</a
           ><a href="../../cv/">CV</a>
         </nav>
         <button
@@ -64,18 +74,7 @@
             把扩散模型与强化学习结合，存在两条目标相反的主线。本文先厘清这两条方向，补全 DDPM 与条件引导采样的数学形式，再围绕 <strong>Diffuser（ICML 2022）</strong>拆解轨迹去噪规划机制与 D4RL 完整实验边界，最后纵向对比 <strong>Diffusion Policy、DDPO、QSM、GenPO</strong> 四篇代表性延伸工作。
           </p>
 
-          <details class="note-tip" open>
-            <summary>目录导航</summary>
-            <ol>
-              <li><a href="#taxonomy">1. 先分清两条相反主线：Diffusion for RL 与 RL for Diffusion</a></li>
-              <li><a href="#math">2. 理论基础：为什么可以把控制与规划改写为条件轨迹采样？</a></li>
-              <li><a href="#diffuser">3. 精读 Diffuser（ICML 2022）：长程稀疏任务胜出，高频控制受限</a></li>
-              <li><a href="#extensions">4. 四篇关键延伸：Diffusion Policy、DDPO、QSM 与 GenPO 各自解了什么瓶颈？</a></li>
-              <li><a href="#takeaways">5. 方法对比与工程选型结论</a></li>
-            </ol>
-          </details>
-
-          <section id="taxonomy">
+<section id="taxonomy">
             <h2>1. 先分清两条相反主线：Diffusion for RL 与 RL for Diffusion</h2>
             <p>
               同样把扩散模型与强化学习放进一个框架，研究目标可以是完全相反的两个方向：
@@ -503,11 +502,11 @@ while episode not done:
           </section>
         </article>
       </main>
-
       <footer class="site-footer">
         <span>© 2026 Chuyang Wei</span>
-        <a href="../">← All notes</a>
+        <a href="../">All Notes</a>
         <a href="../../">Home</a>
+        <a href="../../cv/">CV</a>
       </footer>
     </div>
   </body>

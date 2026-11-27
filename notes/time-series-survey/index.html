@@ -26,6 +26,16 @@
       property="og:url"
       content="https://weichy9218.github.io/notes/time-series-survey/"
     />
+    <meta
+      property="og:image"
+      content="https://weichy9218.github.io/assets/profile/chuyang-wei.png"
+    />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="Chuyang Wei | Research Notes"
+      href="https://weichy9218.github.io/rss.xml"
+    />
     <link rel="icon" href="../../assets/profile/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="../../assets/profile/fonts.css" />
     <link rel="stylesheet" href="../../assets/profile/site.css" />
@@ -42,7 +52,7 @@
         <a class="wordmark" href="../../">CW<span> / Notes</span></a>
         <nav aria-label="Main navigation">
           <a href="../../">Home</a
-          ><a href="../" class="nav-active">Notes</a
+          ><a href="../" class="nav-active" aria-current="page">Notes</a
           ><a href="../../cv/">CV</a>
         </nav>
         <button
@@ -66,25 +76,7 @@
             </p>
           </header>
 
-          <details class="note-tip" open>
-            <summary>目录导航</summary>
-            <ol>
-              <li>
-                <a href="#background">1. 时间序列为什么难做：非平稳性、四大任务与核心挑战</a>（数据特性 / 四类任务 / 共性难题）
-              </li>
-              <li>
-                <a href="#pre-llm">2. 大模型之前的架构演进：为什么简单线性模型一度击败复杂 Transformer？</a>（统计与传统 DL / Transformer / Linear / Diffusion / SSM 与 Mamba）
-              </li>
-              <li>
-                <a href="#llm-ts">3. 大模型时代的时序范式：模态对齐、原生基座与 Agent 工作流</a>（Time-LLM / TimeCMA / Chronos / TimesFM / Time-MoE / TS-Agent / FLAIRR-TS）
-              </li>
-              <li>
-                <a href="#msl-rc">4. 模型空间学习（MSL）与储备池计算实践总结</a>（MSL / ESN 理论与岭回归 / SpaDyn / SARC / 连续时间伴随学习）
-              </li>
-            </ol>
-          </details>
-
-          <!-- ==================== SECTION 1 ==================== -->
+<!-- ==================== SECTION 1 ==================== -->
           <section id="background">
             <h2>1. 时间序列为什么难做：非平稳性、四大任务与核心挑战</h2>
 
@@ -822,11 +814,11 @@
           </section>
         </article>
       </main>
-
       <footer class="site-footer">
         <span>© 2026 Chuyang Wei</span>
-        <a href="../">← All notes</a>
+        <a href="../">All Notes</a>
         <a href="../../">Home</a>
+        <a href="../../cv/">CV</a>
       </footer>
     </div>
   </body>

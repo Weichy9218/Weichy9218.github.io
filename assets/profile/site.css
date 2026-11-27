@@ -590,6 +590,172 @@ h3 {
   border-radius: 3px;
   background: #ffffff;
   padding: 4px;
+  cursor: zoom-in;
+  transition: opacity 0.15s ease;
+}
+.note-img-figure img:hover {
+  opacity: 0.92;
+}
+.note-toc {
+  margin: 0 0 26px;
+  padding: 11px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 13.5px;
+}
+.note-toc summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink);
+  list-style-position: inside;
+}
+.note-toc summary:hover {
+  color: var(--accent);
+}
+.note-toc[open] summary {
+  margin-bottom: 8px;
+}
+.note-toc ol {
+  margin: 0;
+  padding-left: 18px;
+  list-style: none;
+}
+.note-toc li {
+  margin: 5px 0;
+  line-height: 1.55;
+}
+.note-toc a {
+  color: var(--muted);
+  text-decoration: none;
+}
+.note-toc a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.note-pager {
+  margin-top: 44px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  align-items: start;
+  font-size: 13px;
+}
+.note-pager-slot a {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-decoration: none;
+  color: var(--ink);
+}
+.note-pager-slot a:hover .note-pager-title {
+  color: var(--accent);
+}
+.note-pager-next {
+  text-align: right;
+}
+.note-pager-next a {
+  align-items: flex-end;
+}
+.note-pager-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+.note-pager-title {
+  font-weight: 500;
+  line-height: 1.45;
+}
+.note-pager-top a {
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.note-pager-top a:hover {
+  color: var(--ink);
+}
+dialog.img-lightbox {
+  max-width: min(94vw, 1180px);
+  max-height: 92vh;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+dialog.img-lightbox::backdrop {
+  background: rgba(15, 20, 24, 0.72);
+  backdrop-filter: blur(2px);
+}
+dialog.img-lightbox img {
+  display: block;
+  max-width: 100%;
+  max-height: 76vh;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  background: #ffffff;
+  padding: 6px;
+  border-radius: 4px;
+}
+.img-lightbox-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.img-lightbox-close:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.img-lightbox-caption {
+  margin: 12px auto 0;
+  max-width: 780px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.print-cv-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.print-cv-btn:hover {
+  color: var(--ink);
+}
+@media (max-width: 640px) {
+  .note-pager {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .note-pager-next {
+    text-align: left;
+  }
+  .note-pager-next a {
+    align-items: flex-start;
+  }
+  .note-pager-top {
+    order: 3;
+  }
 }
 .note-img-figure.img-narrow img {
   max-width: 560px;
@@ -802,7 +968,10 @@ h3 {
   .site-header,
   .site-footer,
   .skip-link,
-  .more-link {
+  .more-link,
+  .print-cv-btn,
+  .note-pager,
+  dialog.img-lightbox {
     display: none !important;
   }
   body {

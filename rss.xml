@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Chuyang Wei | Research Notes</title>
+    <link>https://weichy9218.github.io/notes/</link>
+    <atom:link href="https://weichy9218.github.io/rss.xml" rel="self" type="application/rss+xml" />
+    <description>Research notes on RSI, Benchmark RSI, agent post-training, optimization, context attribution, retrieval, diffusion RL, and time series.</description>
+    <language>zh-CN</language>
+    <lastBuildDate>Fri, 27 Nov 2026 14:45:07 +0000</lastBuildDate>
+    <item>
+      <title>验证速度决定迭代上限</title>
+      <link>https://weichy9218.github.io/notes/liquid-ai-tianshu-interview/</link>
+      <guid isPermaLink="true">https://weichy9218.github.io/notes/liquid-ai-tianshu-interview/</guid>
+      <pubDate>Thu, 26 Nov 2026 00:00:00 +0000</pubDate>
+      <description>Liquid AI 于天舒访谈技术笔记：端侧硬件约束、Data Scaling 与数据体感、多轮 Agent RL 沙盒、Benchmark 闭环，以及 RSI 与验证速度瓶颈。</description>
+    </item>
+    <item>
+      <title>Muon 为什么前期快、后期震荡</title>
+      <link>https://weichy9218.github.io/notes/muon-optimizer/</link>
+      <guid isPermaLink="true">https://weichy9218.github.io/notes/muon-optimizer/</guid>
+      <pubDate>Thu, 25 Jun 2026 00:00:00 +0000</pubDate>
+      <description>解析矩阵优化器 Muon 的数学本质与收敛边界：从 SVD 奇异值垄断讲起，拆解矩阵符号正交化（UV^T）、五阶 Newton-Schulz 快速近似（zeropower_via_newtonschulz5）、重尾联想记忆加速机制，以及河谷视角下后期减速与震荡的根本原因与两阶段训练策略。</description>
+    </item>
+    <item>
+      <title>OPD 为什么比 RL 省算力，以及何时失效</title>
+      <link>https://weichy9218.github.io/notes/on-policy-distillation/</link>
+      <guid isPermaLink="true">https://weichy9218.github.io/notes/on-policy-distillation/</guid>
+      <pubDate>Wed, 27 May 2026 00:00:00 +0000</pubDate>
+      <description>系统梳理 On-Policy Distillation（OPD）后训练范式：SFT、RL 与 OPD 的二维象限对比，Forward KL 与 Reverse KL 数学与数值推导，discount=0、RL 协同、Unhackable 与 Mode-seeking 四大性质，AIME'24 / Personalization 实验与 Forking Token 机制，以及 Support 与 Thinking Pattern 一致性边界分析。</description>
+    </item>
+    <item>
+      <title>为什么多轮 Agent SFT 学不好长上下文</title>
+      <link>https://weichy9218.github.io/notes/acc-long-context-training/</link>
+      <guid isPermaLink="true">https://weichy9218.github.io/notes/acc-long-context-training/</guid>
+      <pubDate>Wed, 27 May 2026 00:00:00 +0000</pubDate>
+      <description>从底层剖析 LLM 训练中的 Attention Mask 与 Label/Loss Mask 差异、多轮 Agent SFT 的损失权重失衡（Supervision Blind Spot），系统精读 ACC (Compiling Agent Trajectories for Long-Context Training) 的轨迹编译方法、MRCR/GraphWalks 完整实验、防泄漏检验、消融与 MoE 专家特化机制。</description>
+    </item>
+    <item>
+      <title>BM25 的概率由来：为什么词频必须饱和</title>
+      <link>https://weichy9218.github.io/notes/retrieval-bm25/</link>
+      <guid isPermaLink="true">https://weichy9218.github.io/notes/retrieval-bm25/</guid>
+      <pubDate>Fri, 23 Jan 2026 00:00:00 +0000</pubDate>
+      <description>从第一性原理完整推导信息检索基石 BM25：概率排序原理（PRP）、贝叶斯后验赔率与二元独立模型（BIM）、IDF 及其平滑变体、隐变量 Eliteness 与 2-Poisson 混合模型的词频饱和证明、文档长度归一化与完整 BM25 公式，并串联现代 LLM 多阶段混合检索架构。</description>
+    </item>
+    <item>
+      <title>用交互深度换参数量：MiroThinker 三阶段后训练拆解</title>
+      <link>https://weichy9218.github.io/notes/mirothinker-training/</link>
+      <guid isPermaLink="true">https://weichy9218.github.io/notes/mirothinker-training/</guid>
+      <pubDate>Sat, 17 Jan 2026 00:00:00 +0000</pubDate>
+      <description>拆解 MiroThinker v1.0 的长程工具交互训练链路：Recency 上下文管理与 MiroVerse 数据结构、Assistant-only SFT 掩码、带辅助 SFT 损失的 DPO 偏好对齐、解决长尾拖累的流式异步 GRPO 与轨迹过滤，以及 8 项搜索与研究基准定量结果。</description>
+    </item>
+    <item>
+      <title>长推理链归因为何断裂：从扰动法到 CAGE 因果图</title>
+      <link>https://weichy9218.github.io/notes/context-attribution/</link>
+      <guid isPermaLink="true">https://weichy9218.github.io/notes/context-attribution/</guid>
+      <pubDate>Fri, 05 Dec 2025 00:00:00 +0000</pubDate>
+      <description>系统调研自回归大语言模型的上下文归因方法：单步分类抽象与消融算子，CLP / ReAGent / AttriBoT / ContextCite 等黑盒扰动与代理模型方法，梯度饱和问题、积分梯度公理推导与线性化 Transformer 块（IG×Attention），多步自回归因果图 CAGE（Y = A(I-A)^{-1}）及反事实忠实度评测。</description>
+    </item>
+    <item>
+      <title>时间序列建模演进：从统计分解、大模型到模型空间</title>
+      <link>https://weichy9218.github.io/notes/time-series-survey/</link>
+      <guid isPermaLink="true">https://weichy9218.github.io/notes/time-series-survey/</guid>
+      <pubDate>Thu, 04 Sep 2025 00:00:00 +0000</pubDate>
+      <description>完整版时间序列系统调研：数据特性、四大任务与核心挑战，从传统统计、CNN/RNN、Transformer、Linear、Diffusion、SSM/Mamba 到 Time-LLM / TimeCMA / Chronos / TimesFM / Time-MoE 与 Agent 框架，及模型空间学习（MSL/ESN）科研总结。</description>
+    </item>
+    <item>
+      <title>扩散模型与强化学习：把轨迹规划写成条件采样</title>
+      <link>https://weichy9218.github.io/notes/diffusion-rl/</link>
+      <guid isPermaLink="true">https://weichy9218.github.io/notes/diffusion-rl/</guid>
+      <pubDate>Fri, 04 Jul 2025 00:00:00 +0000</pubDate>
+      <description>系统梳理扩散模型与强化学习结合的两条主线（Diffusion for RL 与 RL for Diffusion）：DDPM 与引导采样数学推导、Diffuser (ICML 2022) 算法与 Maze2D/Block Stacking/MuJoCo 完整实验结果，以及 Diffusion Policy、DDPO、QSM 与 GenPO 深度对比。</description>
+    </item>
+    <item>
+      <title>MCP 统一了工具接口，但把上下文账单转给了 Agent</title>
+      <link>https://weichy9218.github.io/notes/mcp/</link>
+      <guid isPermaLink="true">https://weichy9218.github.io/notes/mcp/</guid>
+      <pubDate>Tue, 01 Jul 2025 00:00:00 +0000</pubDate>
+      <description>深入拆解 Model Context Protocol (MCP)：从 M×N 到 M+N 的协议动机、Host–Client–Server 与 stdio / Streamable HTTP 传输层、三大原语与双向能力、安全威胁模型，以及多工具上下文膨胀下的工程结论。</description>
+    </item>
+    <item>
+      <title>重读 GPT-2：多任务能力如何从语言建模里长出来</title>
+      <link>https://weichy9218.github.io/notes/gpt-2-reading/</link>
+      <guid isPermaLink="true">https://weichy9218.github.io/notes/gpt-2-reading/</guid>
+      <pubDate>Wed, 19 Feb 2025 00:00:00 +0000</pubDate>
+      <description>系统精读 Radford et al. (2019) GPT-2 论文：p(output|input,task) 无监督多任务理论假设、WebText 过滤、Byte-level BPE 与 Pre-LN 细节，完整还原 Table 3/4/6 定量实验、8-gram 泄漏分析与历史启示。</description>
+    </item>
+  </channel>
+</rss>
