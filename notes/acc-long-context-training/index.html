@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Agent 长上下文训练机制剖析：Mask 机制、多轮 SFT 监督盲区与 ACC 轨迹编译 | Chuyang Wei</title>
+    <meta
+      name="description"
+      content="从底层剖析 LLM 训练中的 Attention Mask 与 Label/Loss Mask 差异、多轮 Agent SFT 的损失权重失衡（Supervision Blind Spot），系统精读 ACC (Compiling Agent Trajectories for Long-Context Training) 的轨迹编译方法、MRCR/GraphWalks 完整实验、防泄漏检验、消融与 MoE 专家特化机制。"
+    />
+    <link
+      rel="canonical"
+      href="https://weichy9218.github.io/notes/acc-long-context-training/"
+    />
+    <meta property="og:type" content="article" />
+    <meta
+      property="og:title"
+      content="Agent 长上下文训练机制剖析：Mask 机制、多轮 SFT 监督盲区与 ACC 轨迹编译"
+    />
+    <meta
+      property="og:description"
+      content="拆解 Attention Mask 与 Loss Mask、多轮 Agent SFT 监督盲区，精读 ACC 长上下文轨迹编译方法与完整定量实验。"
+    />
+    <meta
+      property="og:url"
+      content="https://weichy9218.github.io/notes/acc-long-context-training/"
+    />
+    <link rel="icon" href="../../assets/profile/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../../assets/profile/fonts.css" />
+    <link rel="stylesheet" href="../../assets/profile/site.css" />
+    <link rel="stylesheet" href="../../assets/katex/katex.min.css" />
+    <script src="../../assets/profile/site.js" defer></script>
+    <script src="../../assets/katex/katex.min.js" defer></script>
+    <script src="../../assets/katex/auto-render.min.js" defer></script>
+    <script src="../../assets/katex/init.js" defer></script>
+  </head>
+  <body>
+    <div class="page">
+      <a class="skip-link" href="#main">Skip to content</a>
+      <header class="site-header">
+        <a class="wordmark" href="../../">CW<span> / Notes</span></a>
+        <nav aria-label="Main navigation">
+          <a href="../../">Home</a
+          ><a href="../" class="nav-active" aria-current="page">Notes</a
+          ><a href="../../cv/">CV</a>
+        </nav>
+        <button
+          class="theme-button"
+          type="button"
+          aria-label="Use dark theme"
+          aria-pressed="false"
+          hidden
+        >
+          <span aria-hidden="true">◐</span>
+        </button>
+      </header>
+
+      <main class="note-main" id="main">
+        <article class="note-article">
+          <header class="note-header">
+            <p class="eyebrow">READING &amp; MECHANISM / AGENT TRAINING &amp; LONG CONTEXT</p>
+            <h1>Agent 长上下文训练机制剖析：Mask 机制、多轮 SFT 监督盲区与 ACC 轨迹编译</h1>
+            <p class="note-meta">
+              2026-05-27 · 原笔记重构与深化（Su et al., USTC &amp; Shanghai AI Lab — 补充完整实验表格与机制拆解）
+            </p>
+          </header>
+
+          <p>
+            多轮工具交互 Agent 在解题时动辄产生几万到十几万 token 的轨迹，里面散落着网页正文、代码文件和数据库表片段。按直觉，直接拿这些长轨迹做标准 Agent SFT，模型应该自然越训越擅长长上下文推理——但实验事实恰恰相反：<strong>直接拿原始 Agent 轨迹做 SFT，甚至会让模型的长程依赖推理能力倒退</strong>。
+          </p>
+          <p>
+            这篇笔记先从最基础也最容易被混为一谈的 <strong>Attention Mask 与 Label/Loss Mask 机制</strong>切入，量化拆解多轮 Agent SFT 的监督盲区，再完整精读 <strong>ACC（Agent Context Compilation）</strong>的方法设计、MRCR / GraphWalks 定量实验、消融与 MoE 机制分析，最后给出对方法归因边界的批判性评估。
+          </p>
+
+          <figure class="note-img-figure">
+            <img
+              src="https://raw.githubusercontent.com/Weichy9218/Image/main/typora/acc-compiling-agent-trajectories-for-long-context-training/2026-05-27/20260527163331-01-image-20260526221354379-96ca3f694d.png"
+              alt="ACC 核心动机与多轮 Agent 轨迹编译为静态长上下文 QA 的对比概览"
+              loading="lazy"
+            />
+            <figcaption>图 1：标准 Agent SFT（左）只监督局部动作选择，导致跨轮次工具观察证据处于监督盲区；ACC（右）将多轮收集的证据编译为静态长上下文，直接监督全局证据定位与整合。</figcaption>
+          </figure>
+
+          <section id="masks-and-blindspot">
+            <h2>1. 基础机制：Attention Mask、Loss Mask 与多轮 SFT 的监督盲区</h2>
+            <p>
+              对任意 Decoder-only 语言模型，标准自回归训练目标可以统一写为带掩码的交叉熵：
+            </p>
+            $$\mathcal{L} = -\sum_{i} m_i \log P_\theta(x_i \mid x_{&lt;i})$$
+            <p>
+              工程实现里存在两类完全不同的 mask，理解 Agent SFT 为什么学不到长上下文整合，必须先分清这两者：
+            </p>
+            <ul>
+              <li>
+                <strong>Attention Mask（控制「能不能看见」）</strong>：作用在前向注意力矩阵上。除了自回归天然的因果下三角 mask 外，真实 token 的 <code>attention_mask = 1</code>、padding 为 <code>0</code>。在标准 Agent SFT 中，工具返回的 observation <strong>不会被 attention mask 遮掉</strong>，后续 assistant token 完全可以 attend 到它。
+              </li>
+              <li>
+                <strong>Label Mask / Loss Mask（控制「算不算 loss」）</strong>：不影响前向可见性，只把不希望模型去「复述生成」的位置设为 <code>labels = -100</code>（即 $m_i = 0$，被 PyTorch <code>CrossEntropyLoss(ignore_index=-100)</code> 跳过）。因为网页内容或 SQL 返回结果应由外部环境提供，标准 Agent SFT（常称 assistant-only / completion-only loss）只对 assistant 自己生成的 reasoning、tool call 与 final answer 计入损失。
+              </li>
+            </ul>
+
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>多轮轨迹片段</th>
+                    <th>在 <code>input_ids</code> 中？</th>
+                    <th>后续 token 能看见吗？</th>
+                    <th>计入交叉熵 Loss 吗？</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>User question ($q$)</td>
+                    <td>是</td>
+                    <td>是（<code>attention_mask=1</code>）</td>
+                    <td>否（<code>labels=-100</code>）</td>
+                  </tr>
+                  <tr>
+                    <td>Assistant reasoning / tool call ($r_t, a_t$)</td>
+                    <td>是</td>
+                    <td>是</td>
+                    <td><strong>是</strong></td>
+                  </tr>
+                  <tr>
+                    <td>Tool observation ($o_t$)</td>
+                    <td>是</td>
+                    <td>是</td>
+                    <td>否（<code>labels=-100</code>）</td>
+                  </tr>
+                  <tr>
+                    <td>Final reasoning &amp; answer ($r_k, y$)</td>
+                    <td>是</td>
+                    <td>逐 token 自回归预测</td>
+                    <td><strong>是</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3>1.1 真正的问题：多轮轨迹下的 Loss 权重严重失衡</h3>
+            <p>
+              把一条 $k$ 轮 Agent 轨迹记为 $\tau = \bigl(q, (r_1, a_1, o_1), \dots, (r_{k-1}, a_{k-1}, o_{k-1}), (r_k, y)\bigr)$。标准 Agent SFT 的损失为：
+            </p>
+            $$\mathcal{L}_{\text{agent}} = -\sum_{t=1}^{k} \sum_{j \in \mathcal{I}_t} \log P_\theta(\text{token}_j \mid \mathcal{H}_{&lt;t}, \text{token}_{&lt;j}), \qquad \mathcal{I}_t = \begin{cases} r_t \cup a_t, &amp; t &lt; k \\ r_k \cup y, &amp; t = k \end{cases}$$
+            <p>
+              问题并不在于「模型看不见 $o_t$」，而在于<strong>绝大部分有梯度的监督 token 被稀释在了中间步骤的动作模仿上</strong>。算一笔简单的账：假设一条轨迹经过 20 轮工具调用，每轮 assistant 输出 100 token 的思考与工具调用参数，最后总结输出 50 token 的最终答案——那么整条样本里有 <strong>2,000 个 token 在训练「当前状态下一步调什么工具」（local policy imitation）</strong>，只有 <strong>50 个 token（2.4%）在训练「把第 1、3、7 轮里散落的证据拼起来得出结论」（global evidence integration）</strong>。
+            </p>
+            <p>
+              这就是论文指出的 <strong>Supervision Blind Spot（监督盲区）</strong>——也是 motivation 里最站得住脚的核心洞察。
+            </p>
+          </section>
+
+          <section id="method">
+            <h2>2. ACC 方法论：把交互轨迹编译成静态长上下文 QA</h2>
+            <p>
+              <strong>ACC（Agent Context Compilation）</strong>的解法非常直接：与其花重金人工标注长文档或启发式拼接伪长文本，不如直接复用 Agent 运行时天然产出的海量真实工具轨迹，<strong>把多轮交互轨迹离线「编译」成单轮静态长上下文问答样本 $(q_i, C_i) \to (r_i, y_i)$</strong>。
+            </p>
+
+            <figure class="note-img-figure">
+              <img
+                src="https://raw.githubusercontent.com/Weichy9218/Image/main/typora/acc-compiling-agent-trajectories-for-long-context-training/2026-05-27/20260527163331-02-image-20260526234046813-3dae629187.png"
+                alt="ACC 从 Search、SWE、SQL 三类 Agent 轨迹提取证据、混入干扰项、打乱顺序并合成推理链的编译流水线"
+                loading="lazy"
+              />
+              <figcaption>图 2：ACC 编译流水线。跨越 Search、SWE、SQL 三类环境收集观察片段与干扰项，随机打乱消除轨迹顺序捷径，再合成经答案校验的推理链 $r_i$。</figcaption>
+            </figure>
+
+            <h3>2.1 三类环境覆盖与核心编译步骤</h3>
+            <p>
+              作者将 ACC 应用到三种结构迥异的 Agent 轨迹，共编译出 <strong>10,802 条</strong>长上下文训练样本（最大序列长度 131,072 tokens）：
+            </p>
+            <ul>
+              <li><strong>Search Agent（$n = 3,369$）</strong>：网页搜索结果与访问正文，对应开放域非结构化长文本。</li>
+              <li><strong>SWE Agent（$n = 4,368$）</strong>：代码仓库文件内容与调试日志，对应多文件代码结构。</li>
+              <li><strong>SQL Agent（$n = 3,065$）</strong>：数据库表内容与查询结果，对应离散关系结构。</li>
+            </ul>
+            <p>
+              构造每条编译样本包含三个关键设计：
+            </p>
+            <ol>
+              <li>
+                <strong>纳入真实干扰项（Distractors）</strong>：除了保留 Agent 真正访问过的证据片段，还会刻意混入同一轨迹里出现过但未采纳的搜索结果或未打开的代码文件，迫使模型在数万 token 噪声中学会筛选与定位。
+              </li>
+              <li>
+                <strong>随机打乱片段顺序（Shuffling）</strong>：把所有证据与干扰项随机重排拼成 $C_i$。目的不是单纯增加难度，而是彻底堵死「顺着 Agent 探索的时间顺序直接抄最后几段」的顺序捷径，逼迫模型依靠语义匹配做跨段关联。
+              </li>
+              <li>
+                <strong>合成经验证的推理链 $r_i$</strong>：在几万 token 上下文里如果只监督最终几个词的答案（如 <code>Les Tzars</code>），监督信号依旧过于稀疏。作者使用 <strong>DeepSeek-V3.2-Thinking</strong> 基于 $(q_i, C_i)$ 生成候选推理过程与答案，仅保留最终答案严格匹配真实标签 $y_i$ 的样本。值得注意的是，不同领域的合成通过率差距悬殊：<strong>Search 接近 100%，SQL 约 50%，SWE 仅约 10%</strong>——复杂代码任务的推理链合成构成了实际扩展瓶颈。
+              </li>
+            </ol>
+
+            <div class="note-callout">
+              <p class="note-callout-title">具体编译样例（Search Agent · Les Tzars）</p>
+              <p>
+                原始多轮轨迹中，Agent 分 3 轮搜索并依次访问了 <code>[Doc A]</code>（黑金属翻唱欧洲加曲）、<code>[Doc D]</code>（1994 广播现场 5 分钟版）、<code>[Doc G]</code>（1997 精选盘 Disc One 第三首），期间还夹杂了无关网页 <code>[Doc C]</code>。ACC 删掉所有中间搜索指令，把 <code>[Doc G, Doc C (distractor), Doc A, Doc D]</code> 乱序拼成单轮上下文 $C_i$，并要求模型直接输出跨文档定位推理链 $r_i$ 与最终答案 <code>Les Tzars</code>。
+              </p>
+            </div>
+          </section>
+
+          <section id="experiments">
+            <h2>3. 完整实验结果、防泄漏检验与消融剖析</h2>
+            <p>
+              作者以 <strong>Qwen3-30B-A3B-Thinking</strong>（总参 30B、激活 3B 的 MoE 推理模型）为基座，使用标准 SFT 训练 4 个 epoch（序列长度 131,072、global batch size 16、AdamW、初始学习率 $1\times 10^{-5}$ 余弦退火至 $1\times 10^{-6}$、序列并行度 8）。主评测聚焦两个专门检验长程依赖建模的硬基准：
+            </p>
+            <ul>
+              <li><strong>MRCR（Multi-Round Coreference Resolution）</strong>：在一堆高度相似、极易混淆的多轮对话中精准找回「第 $k$ 次出现的那个对象」，测的是<strong>长上下文精确定位与消歧</strong>。</li>
+              <li><strong>GraphWalks（BFS &amp; Parents）</strong>：把超长上下文当成一张显式图，要求从起点返回指定深度可达节点（BFS）或全部入边父节点（Parents），测的是<strong>跨位置多跳关系推理</strong>。</li>
+            </ul>
+
+            <figure class="note-img-figure">
+              <img
+                src="https://raw.githubusercontent.com/Weichy9218/Image/main/typora/acc-compiling-agent-trajectories-for-long-context-training/2026-05-27/20260527163331-03-image-20260527112517310-0ee01f7303.png"
+                alt="ACC 训练集三类轨迹 Token 长度分布与 SFT 超参数设置"
+                loading="lazy"
+              />
+              <figcaption>图 3：ACC 训练数据的 token 长度分布（Search / SWE / SQL 覆盖数千至 120K token）及训练超参数（原论文 Fig. 3 与 Table 1）。</figcaption>
+            </figure>
+
+            <h3>3.1 主实验：30B-A3B 追平 235B-A22B（Table 2）</h3>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>模型（avg@3）</th>
+                    <th class="num">MRCR 2-needle</th>
+                    <th class="num">MRCR 4-needle</th>
+                    <th class="num">MRCR Overall</th>
+                    <th class="num">GW Parents</th>
+                    <th class="num">GW BFS</th>
+                    <th class="num">GW Overall</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Qwen3-30B-A3B-Thinking（Base）</strong></td>
+                    <td class="num">61.84</td>
+                    <td class="num">38.41</td>
+                    <td class="num">50.19</td>
+                    <td class="num">71.19</td>
+                    <td class="num">68.47</td>
+                    <td class="num">69.92</td>
+                  </tr>
+                  <tr>
+                    <td><strong>+ ACC（Ours）</strong></td>
+                    <td class="num best">76.90 (+15.06)</td>
+                    <td class="num best">59.57 (+21.16)</td>
+                    <td class="num best">68.28 (+18.09)</td>
+                    <td class="num best">81.50 (+10.31)</td>
+                    <td class="num best">72.95 (+4.48)</td>
+                    <td class="num best">77.51 (+7.59)</td>
+                  </tr>
+                  <tr>
+                    <td>Qwen3-235B-A22B-Thinking</td>
+                    <td class="num">74.98</td>
+                    <td class="num">59.96</td>
+                    <td class="num">67.51</td>
+                    <td class="num">78.53</td>
+                    <td class="num">74.45</td>
+                    <td class="num">76.63</td>
+                  </tr>
+                  <tr>
+                    <td>DeepSeek-V3.2-Thinking</td>
+                    <td class="num">81.60</td>
+                    <td class="num">60.32</td>
+                    <td class="num">71.01</td>
+                    <td class="num">89.87</td>
+                    <td class="num">80.26</td>
+                    <td class="num">85.39</td>
+                  </tr>
+                  <tr>
+                    <td>GPT-5.1-Thinking</td>
+                    <td class="num">73.75</td>
+                    <td class="num">47.93</td>
+                    <td class="num">60.91</td>
+                    <td class="num">81.41</td>
+                    <td class="num">29.41</td>
+                    <td class="num">57.14</td>
+                  </tr>
+                  <tr>
+                    <td>GLM-4.6-Thinking</td>
+                    <td class="num">73.63</td>
+                    <td class="num">55.33</td>
+                    <td class="num">64.53</td>
+                    <td class="num">80.29</td>
+                    <td class="num">77.41</td>
+                    <td class="num">78.95</td>
+                  </tr>
+                  <tr>
+                    <td>Kimi-K2-Thinking</td>
+                    <td class="num">68.01</td>
+                    <td class="num">47.96</td>
+                    <td class="num">58.05</td>
+                    <td class="num">84.34</td>
+                    <td class="num">75.17</td>
+                    <td class="num">80.04</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <figure class="note-img-figure">
+              <img
+                src="https://raw.githubusercontent.com/Weichy9218/Image/main/typora/acc-compiling-agent-trajectories-for-long-context-training/2026-05-27/20260527163331-04-image-20260527112954669-fa571b6f3b.png"
+                alt="ACC 与前沿大模型在 MRCR 与 GraphWalks 上的性能对比原表"
+                loading="lazy"
+              />
+              <figcaption>图 4：原论文 Table 2 截图。经 ACC 训练的 30B-A3B 模型在 MRCR（68.28 vs 67.51）与 GraphWalks（77.51 vs 76.63）两项总分上均略微反超参数量近 8 倍的 Qwen3-235B-A22B-Thinking。</figcaption>
+            </figure>
+
+            <h3>3.2 通用能力保持与防数据泄漏审计（Table 3 &amp; 4）</h3>
+            <p>
+              长上下文专项微调常让人担心破坏短文本通用推理或指令遵循。Table 3 表明，ACC 在 GPQA-Diamond、MMLU-Pro 和 AIME'25 上反而录得小幅正迁移，AIME'24 持平，IFEval 仅微跌 0.55：
+            </p>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>模型（avg@3）</th>
+                    <th class="num">GPQA-Diamond</th>
+                    <th class="num">MMLU-Pro</th>
+                    <th class="num">AIME'24</th>
+                    <th class="num">AIME'25</th>
+                    <th class="num">IFEval</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Qwen3-30B-A3B-Thinking</td>
+                    <td class="num">67.71</td>
+                    <td class="num">74.50</td>
+                    <td class="num">90.00</td>
+                    <td class="num">86.67</td>
+                    <td class="num">86.69</td>
+                  </tr>
+                  <tr>
+                    <td><strong>+ ACC（Ours）</strong></td>
+                    <td class="num best">70.20 (+2.49)</td>
+                    <td class="num best">76.00 (+1.50)</td>
+                    <td class="num">90.00 (0.00)</td>
+                    <td class="num best">90.00 (+3.33)</td>
+                    <td class="num">86.14 (−0.55)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p>
+              为排除测试集泄漏，作者剥离上下文后仅用问题文本与评测集做语义嵌入对比：所有通用基准与训练集最近邻余弦相似度均 <strong>低于 0.36</strong>（AIME 0.2832、MMLU-Pro 0.3216、IFEval 0.3425、GPQA 0.3557），且线性分类器区分训练集与评测集问题的 <strong>AUC 高达 0.9986</strong>，证明是领域级泛化而非样本泄漏。
+            </p>
+
+            <figure class="note-img-figure">
+              <img
+                src="https://raw.githubusercontent.com/Weichy9218/Image/main/typora/acc-compiling-agent-trajectories-for-long-context-training/2026-05-27/20260527163331-05-image-20260527113559247-1b7a36fe5a.png"
+                alt="ACC 通用能力评估 Table 3 及训练集与评测集问题 UMAP 语义分离图"
+                loading="lazy"
+              />
+              <figcaption>图 5：通用能力保持与 UMAP 语义投影审计（原论文 Fig. 4、Table 3 与 Table 4）。</figcaption>
+            </figure>
+
+            <h3>3.3 长上下文后训练基线对比与关键消融（Table 5 &amp; 6）</h3>
+            <p>
+              与现有专门的长上下文后训练方法相比（Table 5）：<strong>QwenLong-L1.5-30B</strong> 动用了文档清洗 + 知识图谱构建 + RL 的复杂多阶段流水线，在 MRCR 上领先（92.30 vs 68.28），而 ACC 仅靠纯 SFT 就在 <strong>GraphWalks 上反超它（77.51 vs 73.85）</strong>，大幅高于 LongRLVR（15.72 / 22.78）与 LongPO（12.97）。
+            </p>
+            <p>
+              最具洞察力的结果藏在 <strong>Table 6 的数据形态与干扰项消融</strong>里：
+            </p>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>训练数据变体（基于 Qwen3-30B-A3B-Thinking）</th>
+                    <th class="num">MRCR</th>
+                    <th class="num">GraphWalks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Base Model</td>
+                    <td class="num">50.19</td>
+                    <td class="num">69.92</td>
+                  </tr>
+                  <tr>
+                    <td><strong>+ Search（原始 Agent SFT，Observation Masked）</strong></td>
+                    <td class="num">42.16 (−8.03)</td>
+                    <td class="num">57.87 (−12.05)</td>
+                  </tr>
+                  <tr>
+                    <td>+ Search（ACC 编译）</td>
+                    <td class="num">58.33 (+8.14)</td>
+                    <td class="num">44.75 (−25.17)</td>
+                  </tr>
+                  <tr>
+                    <td>+ Search（w/o distractor）</td>
+                    <td class="num">54.99 (+4.80)</td>
+                    <td class="num">58.46 (−11.46)</td>
+                  </tr>
+                  <tr>
+                    <td>+ SWE（ACC 编译）</td>
+                    <td class="num">54.82 (+4.63)</td>
+                    <td class="num">50.66 (−19.26)</td>
+                  </tr>
+                  <tr>
+                    <td>+ SWE（w/o distractor）</td>
+                    <td class="num">51.01 (+0.82)</td>
+                    <td class="num">52.88 (−17.04)</td>
+                  </tr>
+                  <tr>
+                    <td><strong>+ SQL（ACC 编译）</strong></td>
+                    <td class="num">56.44 (+6.25)</td>
+                    <td class="num">75.50 (+5.58)</td>
+                  </tr>
+                  <tr>
+                    <td><strong>+ ACC 完整混合（Search + SWE + SQL）</strong></td>
+                    <td class="num best">68.28 (+18.09)</td>
+                    <td class="num best">77.51 (+7.59)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <figure class="note-img-figure">
+              <img
+                src="https://raw.githubusercontent.com/Weichy9218/Image/main/typora/acc-compiling-agent-trajectories-for-long-context-training/2026-05-27/20260527163331-06-image-20260527114138240-8ffb7ecf37.png"
+                alt="ACC 与 QwenLong-L1.5 等方法对比（Table 5）及数据来源与干扰项消融（Table 6）"
+                loading="lazy"
+              />
+              <figcaption>图 6：原论文 Table 5 与 Table 6 截图。原始 Agent SFT 在两项基准上均大幅倒退，而三类轨迹混合编译展现出极强的结构互补性。</figcaption>
+            </figure>
+
+            <p>
+              Table 6 暴露了三个非常实在的规律：
+            </p>
+            <ol>
+              <li>
+                <strong>实锤监督盲区</strong>：直接用原始 Search 轨迹做 Agent SFT，MRCR 暴跌 <strong>−8.03</strong>，GraphWalks 暴跌 <strong>−12.05</strong>——单纯把长轨迹塞进标准 SFT 不仅无益，反而伤害长程依赖建模。
+              </li>
+              <li>
+                <strong>数据结构决定任务迁移方向</strong>：三类单源编译数据都能拉升 MRCR，但到了 GraphWalks 上，<strong>只有 SQL 提升（+5.58）</strong>，单用 Search 或 SWE 反而狂掉 −25.17 / −19.26！因为网页与代码是连续长段落，而 SQL 表格天然具备离散关系与外键连接结构，正好匹配图遍历推理；三者混合后彼此互补，双指标冲到全局最高。
+              </li>
+              <li>
+                <strong>干扰项的双向作用</strong>：去掉 Search / SWE 的 distractor 会让 MRCR 分别下降 3.34 和 3.81 分，证明干扰项对「抗噪精确定位」至关重要。
+              </li>
+            </ol>
+          </section>
+
+          <section id="mechanism-and-critique">
+            <h2>4. 内部机制分析与批判性评估</h2>
+
+            <h3>4.1 Attention 重构与 MoE 专家特化</h3>
+            <p>
+              作者对比了训练前后模型在两个任务上的注意力距离分布与 MoE 专家路由频率，发现模型内部确实演化出了任务自适应的分工：
+            </p>
+            <ul>
+              <li><strong>GraphWalks</strong>：注意力质量在<strong>近距离和超远距离区间双双增强</strong>，同时远距离 token 的 MoE 路由分散激活到多个专家，对应跨节点多跳推理的均衡协作。</li>
+              <li><strong>MRCR</strong>：注意力主要在局部近邻扫描与核对区间增强，同时 MoE 路由高度集中到<strong>少数专用专家</strong>（其余专家被抑制），且两类任务激活变化最剧烈的网络层完全不同。</li>
+            </ul>
+
+            <h3>4.2 读完后必须保留的两点清醒判断</h3>
+            <div class="note-callout">
+              <p class="note-callout-title">ACC 真正证明了什么，以及还没拆干净什么</p>
+              <ol>
+                <li>
+                  <strong>ACC 训练出的是更强的静态长上下文推理器，不是通用 Agent Policy</strong>：评测集 MRCR 和 GraphWalks 本身就是单轮静态长上下文任务，评测时不需要 ACC 编译；它证明的是「Agent 轨迹日志是极佳且廉价的长上下文数据矿藏」，而如何把这种长上下文证据整合能力无缝反哺回多轮交互式 Agent 策略（例如与标准 Agent SFT / RL 混训），论文尚未验证。
+                </li>
+                <li>
+                  <strong>两个增益来源没有完全解耦</strong>：ACC 带来的 +18.09 / +7.59 提升，实际上叠加了<strong>（a）Compiled Context Supervision</strong>（把监督直接锚定到跨段证据上）与<strong>（b）强 Teacher（DeepSeek-V3.2-Thinking）的 Rationale Distillation</strong>。论文没有做「同样用原模型或同等 teacher 生成纯短推理/无编译对照」的消融来把两者的贡献彻底拆开，因此在评估纯架构/数据形态贡献时需要留一分余地。
+                </li>
+              </ol>
+            </div>
+          </section>
+
+          <section id="references">
+            <h2>参考资料</h2>
+            <ul>
+              <li>Su, Q., Fang, Z., Huang, S., et al. (2026). <em>ACC: Compiling Agent Trajectories for Long-Context Training</em>. USTC &amp; Shanghai AI Lab.</li>
+              <li>Dataset: <a href="https://huggingface.co/datasets/groundhogLLM/ACC-dataset">huggingface.co/datasets/groundhogLLM/ACC-dataset</a></li>
+              <li>Checkpoint: <a href="https://huggingface.co/groundhogLLM/ACC-Qwen3-30B-A3B">huggingface.co/groundhogLLM/ACC-Qwen3-30B-A3B</a></li>
+            </ul>
+          </section>
+        </article>
+      </main>
+
+      <footer class="site-footer">
+        <span>© 2026 Chuyang Wei</span>
+        <a href="../">All Notes</a>
+        <a href="../../">Home</a>
+        <a href="../../cv/">CV</a>
+      </footer>
+    </div>
+  </body>
+</html>

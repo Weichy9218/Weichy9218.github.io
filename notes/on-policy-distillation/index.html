@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>On-Policy Distillation（OPD）深度调研：Reverse KL 原理、Forking Token 与适用边界 | Chuyang Wei</title>
+    <meta
+      name="description"
+      content="系统梳理 On-Policy Distillation（OPD）后训练范式：SFT、RL 与 OPD 的二维象限对比，Forward KL 与 Reverse KL 数学与数值推导，discount=0、RL 协同、Unhackable 与 Mode-seeking 四大性质，AIME'24 / Personalization 实验与 Forking Token 机制，以及 Support 与 Thinking Pattern 一致性边界分析。"
+    />
+    <link
+      rel="canonical"
+      href="https://weichy9218.github.io/notes/on-policy-distillation/"
+    />
+    <meta property="og:type" content="article" />
+    <meta
+      property="og:title"
+      content="On-Policy Distillation（OPD）深度调研：Reverse KL 原理、Forking Token 与适用边界"
+    />
+    <meta
+      property="og:description"
+      content="拆解 On-Policy Distillation 的 Reverse KL 目标、Token 级密集反馈、Forking Token 现象，以及它在 Agent 与持续学习中的适用前提与失败边界。"
+    />
+    <meta
+      property="og:url"
+      content="https://weichy9218.github.io/notes/on-policy-distillation/"
+    />
+    <link rel="icon" href="../../assets/profile/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../../assets/profile/fonts.css" />
+    <link rel="stylesheet" href="../../assets/profile/site.css" />
+    <link rel="stylesheet" href="../../assets/katex/katex.min.css" />
+    <script src="../../assets/profile/site.js" defer></script>
+    <script src="../../assets/katex/katex.min.js" defer></script>
+    <script src="../../assets/katex/auto-render.min.js" defer></script>
+    <script src="../../assets/katex/init.js" defer></script>
+  </head>
+  <body>
+    <div class="page">
+      <a class="skip-link" href="#main">Skip to content</a>
+      <header class="site-header">
+        <a class="wordmark" href="../../">CW<span> / Notes</span></a>
+        <nav aria-label="Main navigation">
+          <a href="../../">Home</a
+          ><a href="../" class="nav-active" aria-current="page">Notes</a
+          ><a href="../../cv/">CV</a>
+        </nav>
+        <button
+          class="theme-button"
+          type="button"
+          aria-label="Use dark theme"
+          aria-pressed="false"
+          hidden
+        >
+          <span aria-hidden="true">◐</span>
+        </button>
+      </header>
+
+      <main class="note-main" id="main">
+        <article class="note-article">
+          <header class="note-header">
+            <p class="eyebrow">SURVEY / POST-TRAINING &amp; DISTILLATION</p>
+            <h1>On-Policy Distillation（OPD）深度调研：Reverse KL 原理、Forking Token 与适用边界</h1>
+            <p class="note-meta">
+              2026-05-27 · 原笔记整理与深化（结合 Thinking Machines Lab OPD 报告、RLHF Book 与 Rethinking OPD）
+            </p>
+          </header>
+
+          <p>
+            现代大语言模型的训练通常划分为三个阶段：<strong>Pre-training</strong> 负责通用语言能力、宽泛推理与世界知识；<strong>Mid-training</strong> 负责注入领域知识（代码库、医学语料、企业内部文档）；而 <strong>Post-training</strong> 则不再以堆积知识为主，而是把已有能力塑造成目标任务所需的行为模式（指令遵循、数学推理、工具调用、多轮对话）。
+          </p>
+          <p>
+            长期以来，后训练的两大支柱——<strong>SFT（含 Off-policy 蒸馏）</strong>和 <strong>On-policy RL</strong>——各自卡在一半的优势上。<strong>On-Policy Distillation（OPD）</strong>把两者的关键维度重新组合，成了近一年后训练与持续学习里效率最高的范式之一。这篇笔记系统拆解它的数学本质、核心性质、实验现象，以及它真正会失效的隐含前提。
+          </p>
+
+          <section id="paradigm-matrix">
+            <h2>1. 后训练范式的二维定位：采样分布 × 反馈密度</h2>
+            <p>
+              后训练的核心决策可以拆成两个正交维度：<strong>轨迹从谁的分布采样（Off-policy vs. On-policy）</strong>，以及<strong>监督信号有多密（Sparse vs. Dense）</strong>。
+            </p>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>后训练范式</th>
+                    <th>采样来源</th>
+                    <th>监督密度</th>
+                    <th>对应优化方向</th>
+                    <th>典型瓶颈</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>SFT / Off-Policy Distillation</strong></td>
+                    <td>外部轨迹（Teacher / 人类 / 固定数据集）</td>
+                    <td>Dense（每个 token 有交叉熵监督）</td>
+                    <td>Forward KL：$D_{\text{KL}}(\pi_T \| \pi_S)$</td>
+                    <td>长程任务曝光偏差（Exposure Bias）；易模仿语气而非事实准确性</td>
+                  </tr>
+                  <tr>
+                    <td><strong>On-Policy RL（RLHF / RLVR）</strong></td>
+                    <td>Student 自己 rollout</td>
+                    <td>Sparse（整条轨迹仅末端 1 个标量 reward）</td>
+                    <td>序列级 Reverse KL 正则化</td>
+                    <td>信用分配极难，样本效率低、算力开销大；奖励模型易被 hack</td>
+                  </tr>
+                  <tr>
+                    <td><strong>On-Policy Distillation (OPD)</strong></td>
+                    <td>Student 自己 rollout</td>
+                    <td>Dense（Teacher 对每个 token 实时打 logprob）</td>
+                    <td>Token 级 Reverse KL：$D_{\text{KL}}(\pi_S \| \pi_T)$</td>
+                    <td>受限于 Student 的初始 Support 与师生 Thinking Pattern 一致性</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3>1.1 为什么 Off-Policy SFT / 蒸馏会在长程任务上失灵？</h3>
+            <p>
+              普通基于 Teacher 样本的 SFT，本质上是全分布蒸馏的蒙特卡洛无偏估计：
+            </p>
+            $$\mathbb{E}_{y \sim p_T}[-\log p_S(y)] = -\sum_{y} p_T(y) \log p_S(y)$$
+            <p>
+              但在推理与多轮 Agent 任务上，Off-Policy 蒸馏存在两类顽疾：
+            </p>
+            <ol>
+              <li>
+                <strong>分布漂移与级联错误（Compounding Error）</strong>：训练时 Student 看到的永远是 Teacher 的「完美前缀」；一旦推理时 Student 在早期走错一步，进入了 Teacher 轨迹从未踏足的状态，它根本没学过如何从自己的错误状态里纠偏，后续轨迹越偏越远。
+              </li>
+              <li>
+                <strong>模仿风格而非能力（Style over Factuality）</strong>：单纯拟合 Teacher 输出，小模型很容易学会强模型的自信语气、排版套路与推理模板，却没有真正掌握背后的事实准确性与判断逻辑。
+              </li>
+            </ol>
+
+            <figure class="note-img-figure">
+              <img
+                src="https://raw.githubusercontent.com/Weichy9218/Image/main/typora/opd/2026-05-27/20260527163331-01-image-20260514162814677-9329202e51.png"
+                alt="Thinking Machines Lab On-Policy Distillation 与 SFT、RL 范式对比示意"
+                loading="lazy"
+              />
+              <figcaption>图 1：On-Policy Distillation 的核心思路——从 Student 自身采样轨迹，由 Teacher 在每个 token 位置提供密集评分反馈。</figcaption>
+            </figure>
+          </section>
+
+          <section id="math-mechanism">
+            <h2>2. 数学原理：Reverse KL 目标与 Token 级 Advantage</h2>
+            <p>
+              OPD 的实现极为简洁：先让 Student 策略 $\pi_\theta$ 像 RL 一样自己 rollout 出完整轨迹 $x = (x_1, \dots, x_L)$，然后把同一条轨迹同时送入 Student 和冻结的 Teacher $\pi_{\text{teacher}}$ 做一次前向评分（Teacher <strong>不负责续写</strong>，只给 Student 已生成的每个 token $x_{t+1}$ 打对数概率）。
+            </p>
+            <p>
+              核心优化目标是最小化 <strong>Reverse KL 散度</strong>：
+            </p>
+            $$D_{\text{KL}}\bigl(\pi_\theta \,\|\, \pi_{\text{teacher}}\bigr) = \mathbb{E}_{x \sim \pi_\theta}\!\left[\sum_{t} \Bigl(\log \pi_\theta(x_{t+1} \mid x_{1:t}) - \log \pi_{\text{teacher}}(x_{t+1} \mid x_{1:t})\Bigr)\right]$$
+
+            <h3>2.1 Forward KL vs. Reverse KL：方向反过来意味着什么？</h3>
+            <p>
+              KL 散度严格不对称：$D_{\text{KL}}(P \| Q) \neq D_{\text{KL}}(Q \| P)$。
+            </p>
+            <ul>
+              <li>
+                <strong>Forward KL $D_{\text{KL}}(\pi_T \| \pi_\theta)$（普通 SFT / Off-policy 蒸馏）</strong>：期望取在 Teacher 分布上。只要 Teacher 会生成某种写法，Student 就被迫给它分配足够概率，因此表现为 <strong>Mode-covering（覆盖所有模式）</strong>——小容量模型往往被迫在多个模式之间「摊平概率」，产生模糊或幻觉输出。
+              </li>
+              <li>
+                <strong>Reverse KL $D_{\text{KL}}(\pi_\theta \| \pi_T)$（OPD）</strong>：期望取在 Student 自己采样的分布上。只要 Student 落进 Teacher 认可的某一个高概率模式里，就不会因为没覆盖 Teacher 的其他解法而受罚，因此表现为 <strong>Mode-seeking（聚焦高概率模式）</strong>，对参数量受限的小模型格外友好。
+              </li>
+            </ul>
+
+            <h3>2.2 逐 Token 奖励与具体数值直观</h3>
+            <p>
+              把每一步的 Reverse KL 样本项取负号，就得到极其直观的 per-token reward / advantage：
+            </p>
+            $$r_t = \log \pi_{\text{teacher}}(x_{t+1} \mid x_{1:t}) - \log \pi_\theta(x_{t+1} \mid x_{1:t})$$
+            <p>
+              注意这是<strong>对数概率差（等价于概率比值的对数）</strong>，不是直接做概率减法：
+            </p>
+            <ul>
+              <li>
+                <strong>严厉惩罚「自信胡说」</strong>：若 Student 以 $p_S = 0.8$ 的高置信度生成 token $A$，但 Teacher 认为 $p_T = 0.02$，则单步 KL 损失 $\log(0.8 / 0.02) = \log 40 \approx +3.69$，对应强负奖励 $r_t \approx -3.69$，立刻压低该错误 token 的概率。
+              </li>
+              <li>
+                <strong>强化「不够自信但正确」的采样</strong>：若 Student 只给了 $p_S = 0.1$ 就采到了 token $B$，而 Teacher 给出 $p_T = 0.5$，则单步损失 $\log(0.1 / 0.5) = \log 0.2 \approx -1.61$，对应正向优势 $r_t \approx +1.61$，推动 Student 提高它的生成概率。
+              </li>
+            </ul>
+          </section>
+
+          <section id="properties">
+            <h2>3. OPD 的四大关键性质</h2>
+
+            <h3>3.1 折扣因子 $\gamma = 0$（只管当下这一步）</h3>
+            <p>
+              标准 RL 的累计回报是 $R_t = r_t + \gamma r_{t+1} + \gamma^2 r_{t+2} + \dots$。但在 OPD 中，Thinking Machines 的实验发现设置 $\gamma &gt; 0$ 并没有带来收益，因此直接取 $\gamma = 0$（即 $R_t = r_t$）。每个 token 的更新只取决于当前步 Teacher 的即时对数概率评价，方差极小且不把后续噪声反向传回来。
+            </p>
+
+            <h3>3.2 与现代 RL 框架天然同构（Natural Synergy with RL）</h3>
+            <p>
+              带 KL 正则的标准 RLHF / RLVR 目标为：
+            </p>
+            $$\max_{\pi_\theta}\; \mathbb{E}_{y \sim \pi_\theta}\bigl[r(x, y)\bigr] - \beta\, D_{\text{KL}}\bigl(\pi_\theta \,\|\, \pi_{\text{ref}}\bigr)$$
+            <p>
+              如 <em>RLHF Book</em> 所总结的，最大化该目标在数学上等价于最小化朝向最优诱导策略 $\pi_\star$ 的 Reverse KL。工程上，RL 是「Student rollout → 序列级 reward → 策略梯度更新」，OPD 则是「Student rollout → Teacher logprob 给出 per-token advantage → 复用完全相同的 RL 策略梯度训练管线」（如 <code>tinker-cookbook</code> 中的实现），几乎零改造成本就能和 RLVR 混训或串联。
+            </p>
+
+            <h3>3.3 抗 Reward Hacking（Unhackable 的准确边界）</h3>
+            <p>
+              独立训练的标量 Reward Model 极易被策略钻空子（凑字数、装自信、刷格式）。OPD 没有独立的判别器，它的奖励直接来自 Teacher 自身的生成对数概率分布：Student 想拿到低 Reverse KL，在数学上就必须在自己常采样的区域里逼近 Teacher 的条件分布，不可能找到一个「Teacher 觉得离谱但奖励极高」的漏洞。不过需要澄清：<strong>unhackable 不等于绝对正确</strong>——如果 Teacher 本身在某题上会犯错，Student 仍会忠实学到 Teacher 的偏见。
+            </p>
+
+            <h3>3.4 样本高效与多轮复用不塌缩</h3>
+            <p>
+              稀疏结果奖励 RL 在同一批 prompt 上反复训练极易过拟合答案；而 OPD 的监督目标是整个条件 token 分布，哪怕对少量 prompt 做多轮不同 rollout 复用，只要 Student 采样出的路径不同，Teacher 就能持续提供全新的密集纠错信号。
+            </p>
+          </section>
+
+          <section id="experiments">
+            <h2>4. 实验现象与定量结果</h2>
+
+            <h3>4.1 核心机制现象：惩罚的是「分叉 Token」，而非最终错答案</h3>
+            <p>
+              把 OPD 在一条错误推理轨迹上的逐 token Reverse KL 画出来，会出现一个极具启发性的现象：<strong>错误结论并不是在最后一个词突然蹦出来的，而是前面某几个关键推理决策把路径带偏后的必然结果。</strong>
+            </p>
+
+            <figure class="note-img-figure">
+              <img
+                src="https://raw.githubusercontent.com/Weichy9218/Image/main/typora/opd/2026-05-27/20260527163331-02-example-kl-illustration-16be4b433e.svg"
+                alt="OPD 逐 token Reverse KL 热力示意：高惩罚集中在导致推理走偏的 Forking Tokens"
+                loading="lazy"
+              />
+              <figcaption>图 2：OPD 的逐 token 惩罚分布。高 KL 惩罚精准落在把推理带向错误岔路的 Forking Tokens（如忽略物理常识开始机械累加冰块数量），而对沿着错误前提自然算出的最终数字惩罚反而较小。</figcaption>
+            </figure>
+
+            <p>
+              配合 $\gamma = 0$，OPD 真正教给模型的不是「你最后算错了」，而是「<strong>你在第 $t$ 步把现实问题当成纯算术题、忽略了冰块会融化</strong>」。放到多轮工具调用 Agent 里同理：最值钱的梯度不是末尾的 <code>answer wrong</code>，而是中间那个分叉瞬间——本该先调用搜索却直接作答、本该核对 observation 却视而不见、本该收尾却陷入死循环。
+            </p>
+
+            <h3>4.2 定量对比：数学推理（AIME'24）与企业知识个性化</h3>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>实验场景</th>
+                    <th>基座与训练流程</th>
+                    <th>核心定量结果与结论</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>数学推理（AIME'24）</strong></td>
+                    <td><code>Qwen3-8B-Base</code> 先用 400K OpenThoughts-3 样本做 Off-policy SFT 冷启动，再以更大模型（如 Qwen3-32B）为 Teacher 做 OPD</td>
+                    <td>Off-policy SFT 停留在 <strong>~60%</strong>；传统稀疏奖励 RL 推到 67.6%–70% 需约 17,920 GPU 小时；<strong>OPD 仅用约 1/10 的算力（~1,800 GPU 小时）即推至 70%</strong>。</td>
+                  </tr>
+                  <tr>
+                    <td><strong>领域个性化 / 持续学习</strong></td>
+                    <td>Stage 1：用企业内部文档对 Student 做 Mid-training（注入私有知识，但破坏了原有助手行为）；Stage 2：以旧版 <code>Qwen3-8B</code> 为 Teacher，在通用 Tulu3 prompts 上做 OPD</td>
+                    <td><strong>关键误区澄清</strong>：OPD 阶段完全没碰内部文档，它的作用不是「教新知识」，而是在<strong>不遗忘新学内部知识的前提下，以极少步数（比 RL 少 7–10×）无损恢复指令遵循与助手交互行为</strong>。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="note-callout">
+              <p class="note-callout-title">对后训练与持续学习的四条架构分工</p>
+              <ol>
+                <li><strong>RL 是昂贵的策略搜索器</strong>：用于探索超越任何已有 Teacher 上限的新解。</li>
+                <li><strong>OPD 是高效的策略复制器</strong>：只要已有更强 Teacher，OPD 在同精度下可把算力压到 RL 的约 1/10。</li>
+                <li><strong>OPD 比 SFT 更适合行为保持</strong>：Reverse KL 只约束 Student 自身访问到的区域，不易冲刷掉刚学到的领域权重。</li>
+                <li><strong>持续学习的合理分工</strong>：用 Mid-training / SFT / RAG 注入新知识，再用 OPD 快速恢复通用对话、工具格式与成本控制行为。</li>
+              </ol>
+            </div>
+          </section>
+
+          <section id="boundaries">
+            <h2>5. 容易忽略的失效边界与两阶段工程配方</h2>
+            <p>
+              OPD 并不是「随便拿一个弱 Student 配一个超强 Teacher 就能起飞」的银弹。结合 Thinking Machines 的实验前提与 <em>Rethinking On-Policy Distillation of Large Language Models</em>（<code>arXiv:2604.13016</code>）的机制分析，OPD 的成败严格受限于两个隐藏条件：
+            </p>
+
+            <h3>5.1 Support 缺失：采不到就永远学不会</h3>
+            <p>
+              因为 OPD 是纯粹 On-policy 的，奖励只计算在 Student <strong>实际采样出来的 token</strong> 上。如果某个正确动作（例如调用 <code>call_tool(search)</code>）在 Student 当前策略下的概率几乎为零、rollout 中根本采不到，那么 OPD 只能不断惩罚「直接瞎答」，却永远没机会给 <code>call_tool(search)</code> 赋予正优势——换句话说，<strong>OPD 无法从零凭空创造 Student 分布支撑集之外的新能力</strong>。
+            </p>
+
+            <h3>5.2 Thinking Pattern 一致性（跨家族强 Teacher 未必更好）</h3>
+            <p>
+              <em>Rethinking OPD</em> 指出，OPD 成功除了要求 Teacher 能提供真实的信息增益（Information Gain），还强依赖<strong>师生思维模式兼容（Thinking-Pattern Consistency）</strong>：在 Student 访问到的状态上，师生必须共享一小撮承载 97%–99% 概率质量的核心候选 token。
+            </p>
+            <p>
+              如果 Teacher 习惯「先列物理前提再建方程」，而 Student 只会「见数就加减乘除」，即使 Teacher 纸面分数再高，它在 Student 诡异前缀上打出的 logprob 也会充满高方差噪声。工程上，一个<strong>同家族、同工具接口、同推理风格</strong>的 Teacher，往往比一个异构但纸面更强的超大 Teacher 有效得多。
+            </p>
+
+            <h3>5.3 实践中最稳的两阶段配方</h3>
+            <p>
+              回头看 Thinking Machines 的两个主实验，其实都暗含了同一套两阶段工程范式（<code>arXiv:2604.13016</code> 也给出了相同的补救方案——Off-policy Cold Start + Teacher-aligned Prompt Selection）：
+            </p>
+            <pre><code>Stage 1 · Off-Policy SFT / Mid-training（铺开 Support 与注入知识）
+  └─ 例：400K OpenThoughts-3 SFT 让 Qwen3-8B-Base 达到 AIME'24 60%
+  └─ 或：内部文档 Mid-training 让模型掌握领域知识
+
+Stage 2 · On-Policy Distillation（在已有 Support 上做密集纠偏与行为塑形）
+  └─ Student 自主采样 rollout，同构 Teacher 逐 token Reverse KL 打分
+  └─ 消除长程曝光偏差，低成本把 AIME'24 推至 70% / 恢复助手行为</code></pre>
+            <p>
+              一句话定位 OPD：它不是从零造能力的引擎，而是在 Student 已经具备基础 Support 之后，把策略分布高效率、低遗忘地拉齐到 Teacher 高质量区域的最佳精修器。
+            </p>
+          </section>
+
+          <section id="references">
+            <h2>参考资料</h2>
+            <ul>
+              <li>Thinking Machines Lab. <em>On-Policy Distillation</em>. <a href="https://thinkingmachines.ai/blog/on-policy-distillation/">thinkingmachines.ai/blog/on-policy-distillation</a></li>
+              <li>Thinking Machines Lab. <em>Tinker Cookbook — Distillation Recipes</em>. <a href="https://github.com/thinking-machines-lab/tinker-cookbook/tree/main/tinker_cookbook/recipes/distillation">github.com/thinking-machines-lab/tinker-cookbook</a></li>
+              <li>Lambert, N. <em>RLHF Book — Chapter 15: Regularization</em>. <a href="https://rlhfbook.com/c/15-regularization">rlhfbook.com/c/15-regularization</a></li>
+              <li><em>Rethinking On-Policy Distillation of Large Language Models: Phenomenology, Mechanism, and Recipe</em>. <a href="https://arxiv.org/abs/2604.13016">arXiv:2604.13016</a></li>
+            </ul>
+          </section>
+        </article>
+      </main>
+
+      <footer class="site-footer">
+        <span>© 2026 Chuyang Wei</span>
+        <a href="../">All Notes</a>
+        <a href="../../">Home</a>
+        <a href="../../cv/">CV</a>
+      </footer>
+    </div>
+  </body>
+</html>

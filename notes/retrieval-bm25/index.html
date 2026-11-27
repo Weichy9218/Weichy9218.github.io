@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>信息检索经典方案推导：从概率排序原理（BIM）到 BM25 与现代混合检索 | Chuyang Wei</title>
+    <meta
+      name="description"
+      content="从第一性原理完整推导信息检索基石 BM25：概率排序原理（PRP）、贝叶斯后验赔率与二元独立模型（BIM）、IDF 及其平滑变体、隐变量 Eliteness 与 2-Poisson 混合模型的词频饱和证明、文档长度归一化与完整 BM25 公式，并串联现代 LLM 多阶段混合检索架构。"
+    />
+    <link
+      rel="canonical"
+      href="https://weichy9218.github.io/notes/retrieval-bm25/"
+    />
+    <meta property="og:type" content="article" />
+    <meta
+      property="og:title"
+      content="信息检索经典方案推导：从概率排序原理（BIM）到 BM25 与现代混合检索"
+    />
+    <meta
+      property="og:description"
+      content="零跳步数学推导 BIM → IDF → Eliteness 词频饱和 → BM25，并对比词法、稠密向量、混合检索与交叉编码器重排。"
+    />
+    <meta
+      property="og:url"
+      content="https://weichy9218.github.io/notes/retrieval-bm25/"
+    />
+    <link rel="icon" href="../../assets/profile/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../../assets/profile/fonts.css" />
+    <link rel="stylesheet" href="../../assets/profile/site.css" />
+    <link rel="stylesheet" href="../../assets/katex/katex.min.css" />
+    <script src="../../assets/profile/site.js" defer></script>
+    <script src="../../assets/katex/katex.min.js" defer></script>
+    <script src="../../assets/katex/auto-render.min.js" defer></script>
+    <script src="../../assets/katex/init.js" defer></script>
+  </head>
+  <body>
+    <div class="page">
+      <a class="skip-link" href="#main">Skip to content</a>
+      <header class="site-header">
+        <a class="wordmark" href="../../">CW<span> / Notes</span></a>
+        <nav aria-label="Main navigation">
+          <a href="../../">Home</a
+          ><a href="../" class="nav-active" aria-current="page">Notes</a
+          ><a href="../../cv/">CV</a>
+        </nav>
+        <button
+          class="theme-button"
+          type="button"
+          aria-label="Use dark theme"
+          aria-pressed="false"
+          hidden
+        >
+          <span aria-hidden="true">◐</span>
+        </button>
+      </header>
+
+      <main class="note-main" id="main">
+        <article class="note-article">
+          <header class="note-header">
+            <p class="eyebrow">FOUNDATIONS / INFORMATION RETRIEVAL &amp; RAG</p>
+            <h1>信息检索经典方案推导：从概率排序原理（BIM）到 BM25 与现代混合检索</h1>
+            <p class="note-meta">
+              2026-01-23 · 原笔记整理与深化（完整保留零跳步概率推导，补充多阶段检索架构与超参分析）
+            </p>
+          </header>
+
+          <p>
+            哪怕已经进入长上下文和大模型 Agent 时代，只要面对超大规模语料库（远超单次上下文窗口限制），<strong>检索（Retrieval）</strong>依然是不可替代的前置筛选层。而在几乎所有工业级混合检索系统中，三十年前提出的 <strong>BM25</strong> 至今仍是与稠密向量检索平起平坐的核心召回基线。
+          </p>
+          <p>
+            很多资料只会直接甩出 BM25 的最终公式，却不解释为什么 IDF 长成对数赔率、为什么词频项要带饱和分式 $\frac{(k_1+1)tf}{k_1+tf}$、以及长度归一化 $B$ 是怎么来的。这篇笔记从最底层的<strong>概率排序原理</strong>出发，一步步无跳步推完 <strong>PRP → 贝叶斯赔率 → BIM → IDF → 隐变量 Eliteness（词频饱和）→ BM25</strong>，再把它放回现代 LLM 多阶段检索管线里做定位。
+          </p>
+
+          <section id="pipeline">
+            <h2>1. 检索范式演进与现代工业级管线</h2>
+            <p>
+              信息检索的技术演进大致经历了四代：从早期<strong>词法检索（Lexical Retrieval）</strong>追求字面精确匹配（不理解同义语义，但对专有名词、型号、代码符号的 Precision 极高），到深度学习时代的<strong>稠密语义检索（Dense Retrieval）</strong>靠双塔向量提升 Recall，再到工程上几乎标配的<strong>混合检索（Hybrid Retrieval：BM25 + Dense）</strong>，最后演变为 LLM 时代的<strong>多阶段漏斗（Multi-stage Retrieval）</strong>。
+            </p>
+
+            <figure class="note-figure">
+              <svg viewBox="0 0 680 156" role="img" aria-label="现代 LLM 多阶段工业级检索漏斗架构图">
+                <defs>
+                  <marker id="ret-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--muted)" />
+                  </marker>
+                </defs>
+                <rect x="10" y="42" width="84" height="58" rx="6" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5" />
+                <text x="52" y="67" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">Query</text>
+                <text x="52" y="84" text-anchor="middle" font-size="10" fill="var(--muted)">语料库 N 篇</text>
+
+                <line x1="94" y1="71" x2="122" y2="71" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ret-arrow)" />
+
+                <rect x="126" y="34" width="144" height="74" rx="6" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.6" />
+                <text x="198" y="57" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ink)">Stage 1 · 混合召回</text>
+                <text x="198" y="75" text-anchor="middle" font-size="10.5" fill="var(--muted)">BM25 + Dense (RRF)</text>
+                <text x="198" y="93" text-anchor="middle" font-size="10" fill="var(--accent)">Top 1,000 · 毫秒级</text>
+
+                <line x1="270" y1="71" x2="298" y2="71" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ret-arrow)" />
+
+                <rect x="302" y="34" width="140" height="74" rx="6" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5" />
+                <text x="372" y="57" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ink)">Stage 2 · 交叉重排</text>
+                <text x="372" y="75" text-anchor="middle" font-size="10.5" fill="var(--muted)">Cross-Encoder Rerank</text>
+                <text x="372" y="93" text-anchor="middle" font-size="10" fill="var(--muted)">Top 100 · 全交互打分</text>
+
+                <line x1="442" y1="71" x2="470" y2="71" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ret-arrow)" />
+
+                <rect x="474" y="34" width="114" height="74" rx="6" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5" />
+                <text x="531" y="57" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ink)">Stage 3 · 精筛</text>
+                <text x="531" y="75" text-anchor="middle" font-size="10.5" fill="var(--muted)">LLM Rerank / Filter</text>
+                <text x="531" y="93" text-anchor="middle" font-size="10" fill="var(--muted)">Top 5 ~ 10</text>
+
+                <line x1="588" y1="71" x2="612" y2="71" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#ret-arrow)" />
+
+                <rect x="616" y="42" width="54" height="58" rx="6" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5" />
+                <text x="643" y="68" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ink)">RAG</text>
+                <text x="643" y="84" text-anchor="middle" font-size="10" fill="var(--muted)">生成</text>
+
+                <text x="340" y="138" text-anchor="middle" font-size="10.5" fill="var(--muted)">
+                  计算量逐级上升、候选集逐级收敛：底层召回决定天花板（Recall），上层重排决定信噪比（Precision）
+                </text>
+              </svg>
+              <figcaption>图 1：现代 LLM 检索系统的典型多阶段漏斗。BM25 处于最外层的高吞吐召回位置，与稠密检索互补。</figcaption>
+            </figure>
+
+            <p>
+              下面回到信息检索的起点：给定包含 $N$ 篇文档的语料库 $\mathcal{D}$ 和由 $m$ 个词项构成的查询 $Q = (t_1, \dots, t_m)$，如何从第一性原理构造排序打分函数 $\text{score}(d, Q)$？
+            </p>
+          </section>
+
+          <section id="bim">
+            <h2>2. 概率排序原理与二元独立模型（BIM）</h2>
+
+            <h3>2.1 概率排序原理与后验赔率</h3>
+            <p>
+              <strong>概率排序原理（Probability Ranking Principle, PRP）</strong>指出：如果我们能估计出每篇文档 $d$ 对查询 $Q$ 相关的后验概率 $P(R = 1 \mid d, Q)$，按该概率从高到低排序即可在决策论意义下最优。
+            </p>
+            <p>
+              先做最简抽象：对查询中的每个词项 $t_i$，定义二元指示变量 $x_i \in \{0, 1\}$（出现为 $1$，未出现为 $0$），于是文档 $d$ 在查询词上的表现就是二值向量 $\mathbf{x} = (x_1, \dots, x_m)$。相关性同样记为二元变量 $R \in \{0, 1\}$。直接比较 $P(R=1 \mid \mathbf{x})$ 带有归一化分母，转用单调等价的<strong>后验赔率（Odds）</strong>并用贝叶斯公式拆解：
+            </p>
+            $$\text{odds}(R=1 \mid \mathbf{x}) = \frac{P(R=1 \mid \mathbf{x})}{P(R=0 \mid \mathbf{x})} = \underbrace{\frac{P(R=1)}{P(R=0)}}_{\text{先验赔率（与文档无关）}} \cdot \underbrace{\frac{P(\mathbf{x} \mid R=1)}{P(\mathbf{x} \mid R=0)}}_{\text{似然比（证据强度）}}$$
+
+            <h3>2.2 条件独立假设与逐词加和结构</h3>
+            <p>
+              <strong>二元独立模型（Binary Independence Model, BIM）</strong>假设：在给定相关性 $R$ 的条件下，各查询词的出现相互独立，即 $P(\mathbf{x} \mid R) = \prod_{i=1}^{m} P(x_i \mid R)$。对后验赔率取对数（单调递增，不改变文档排序）并丢弃对所有文档相同的先验常数项，得到检索状态值（Retrieval Status Value, RSV）：
+            </p>
+            $$\text{RSV}(d, Q) \propto \sum_{i=1}^{m} \log \frac{P(x_i \mid R=1)}{P(x_i \mid R=0)}$$
+            <p>
+              这就是信息检索中「文档总分等于各个查询词贡献之和」的数学来源。
+            </p>
+
+            <h3>2.3 伯努利展开：精确推出词项证据强度 $c_i$</h3>
+            <p>
+              定义两个条件概率参数：
+            </p>
+            $$p_i = P(x_i = 1 \mid R = 1), \qquad r_i = P(x_i = 1 \mid R = 0)$$
+            <p>
+              分别表示词 $t_i$ 在相关文档与不相关文档中出现的概率。由于 $x_i \in \{0, 1\}$，可以用伯努利分布统一写作 $P(x_i \mid R=1) = p_i^{x_i}(1-p_i)^{1-x_i}$ 与 $P(x_i \mid R=0) = r_i^{x_i}(1-r_i)^{1-x_i}$。代入单个词项的对数似然比逐步化简：
+            </p>
+            $$\begin{aligned}
+            \log \frac{P(x_i \mid R=1)}{P(x_i \mid R=0)}
+            &= \log \frac{p_i^{x_i}(1-p_i)^{1-x_i}}{r_i^{x_i}(1-r_i)^{1-x_i}} \\
+            &= x_i \log\frac{p_i}{r_i} + (1 - x_i)\log\frac{1-p_i}{1-r_i} \\
+            &= \underbrace{\log\frac{1-p_i}{1-r_i}}_{\text{不含 } x_i \text{，排序时为常数}} + x_i \cdot \underbrace{\log\frac{p_i(1-r_i)}{(1-p_i)r_i}}_{c_i}
+            \end{aligned}$$
+            <p>
+              忽略与文档无关的常数项，每当词 $t_i$ 在文档中出现（$x_i = 1$），它贡献的<strong>证据强度 $c_i$</strong> 恰好拆成两部分：
+            </p>
+            $$c_i = \log\frac{p_i(1-r_i)}{(1-p_i)r_i} = \log\frac{p_i}{1-p_i} + \log\frac{1-r_i}{r_i}$$
+            <ul>
+              <li>$\log \frac{p_i}{1-p_i}$：词在<strong>相关文档</strong>里的出现优势（相关 odds）；</li>
+              <li>$\log \frac{1-r_i}{r_i}$：词在<strong>不相关文档</strong>里的稀有程度（反 odds）。</li>
+            </ul>
+            <p>
+              一个词如果既常出现在相关文档中（$p_i$ 大），又极少出现在不相关文档中（$r_i$ 小），它的证据强度 $c_i$ 就高。
+            </p>
+          </section>
+
+          <section id="idf">
+            <h2>3. 从 $c_i$ 到 IDF 及其工程平滑变体</h2>
+            <p>
+              真实无监督检索里，系统并不知道当前查询对应的相关文档集合，因而无法估计 $p_i$。Robertson &amp; Spärck-Jones 的经典做法是令先验无偏向：$p_i = 0.5$，此时 $\log\frac{p_i}{1-p_i} = \log 1 = 0$，证据强度退化为只依赖不相关文档中的稀有度：
+            </p>
+            $$c_i \approx \log\frac{1 - r_i}{r_i}$$
+            <p>
+              因为对任意查询，全语料库 $N$ 篇文档中绝大多数都是不相关的，包含词 $t_i$ 的文档数 $df_i$ 占比 $df_i / N$ 就是 $r_i = P(x_i=1 \mid R=0)$ 的近似最大似然估计 $\hat{r}_i \approx df_i / N$。代入上式立即得到经典的<strong>逆文档频率（IDF）</strong>原型：
+            </p>
+            $$c_i \approx \log\frac{1 - df_i/N}{df_i/N} = \log\frac{N - df_i}{df_i}$$
+            <p>
+              围绕这个原型，衍生出工程中最常见的三种 IDF 变体：
+            </p>
+            <ul>
+              <li><strong>经典 TF-IDF 近似</strong>：当查询词较稀有（$df_i \ll N$）时，$N - df_i \approx N$，化简为 $\log\frac{N}{df_i}$。</li>
+              <li><strong>Robertson–Spärck Jones 平滑（RSJ IDF）</strong>：为避免 $df = 0$ 或 $df = N$ 造成除零与对数发散，分子分母各加 $0.5$：
+                $$\text{IDF}_{\text{RSJ}}(t) = \log\frac{N - df(t) + 0.5}{df(t) + 0.5}$$
+              </li>
+              <li><strong>Lucene / 非负稳健变体</strong>：注意 RSJ IDF 在高频停用词满足 $df(t) &gt; N/2$ 时会变成负数；工程实现（如 Lucene / Elasticsearch）常在真数内加 $1$，保证所有词项权重非负：
+                $$\text{IDF}_{\text{Lucene}}(t) = \log\!\left(\frac{N - df(t) + 0.5}{df(t) + 0.5} + 1\right)$$
+              </li>
+            </ul>
+          </section>
+
+          <section id="eliteness-bm25">
+            <h2>4. 引入词频与隐变量 Eliteness：推出词频饱和与 BM25</h2>
+            <p>
+              BIM 的局限在于只看二值「出不出现」（$x_i = \mathbf{1}[tf &gt; 0]$），无法区分一篇文档里「只提了 1 次」和「反复讨论了 10 次」。现在把观测变量升级为整数词频 $TF_t \in \{0, 1, 2, \dots\}$，类比 BIM，每个词的词频证据强度同样写成对数似然比：
+            </p>
+            $$w_t(tf) = \log\frac{P(TF_t = tf \mid R=1)}{P(TF_t = tf \mid R=0)}, \qquad \text{RSV}(d, Q) \propto \sum_{t \in Q} w_t(tf_{t, d})$$
+
+            <h3>4.1 为什么要引入隐变量 Eliteness（精英性）？</h3>
+            <p>
+              如果直接拟合 $P(TF_t = tf \mid R=1)$ 和 $P(TF_t = tf \mid R=0)$，每个词、每个查询的相关集分布都不一样，根本没有足够标注去估计参数。Robertson &amp; Walker 的关键建模技巧是引入一个二值隐变量<strong>主题性 / 精英性（Eliteness, $E \in \{0, 1\}$）</strong>：
+            </p>
+            <ul>
+              <li>$E = 1$：该词是这篇文档的核心主题词（elite），因此往往高频出现；</li>
+              <li>$E = 0$：该词只是顺带提及或未提及（non-elite）。</li>
+            </ul>
+            <p>
+              把 $tf$ 看成由隐状态 $E$ 生成的观测结果，对 $E \in \{0, 1\}$ 做全概率展开：
+            </p>
+            $$P(TF = tf \mid R=1) = P(TF = tf \mid E=1, R=1) P(E=1 \mid R=1) + P(TF = tf \mid E=0, R=1) P(E=0 \mid R=1)$$
+            <p>
+              再引入条件独立简化：<strong>给定词是不是主题词 $E$ 后，词频分布的形状不再直接依赖查询相关性 $R$</strong>，记 $E_1(tf) := P(TF=tf \mid E=1)$，$E_0(tf) := P(TF=tf \mid E=0)$（在 2-Poisson 模型中它们对应两个不同速率参数的泊松分布）。相关性 $R$ 只通过改变「成为主题词的概率」起作用：令 $p_1 = P(E=1 \mid R=1)$，$p_0 = P(E=1 \mid R=0)$。于是得到两成分混合模型：
+            </p>
+            $$P(TF = tf \mid R=1) = p_1 E_1(tf) + (1 - p_1) E_0(tf)$$
+            $$P(TF = tf \mid R=0) = p_0 E_1(tf) + (1 - p_0) E_0(tf)$$
+            <p>
+              代回对数似然比定义，严格表达式为：
+            </p>
+            $$w(tf) = \log\frac{p_1 E_1(tf) + (1 - p_1) E_0(tf)}{p_0 E_1(tf) + (1 - p_0) E_0(tf)}$$
+
+            <h3>4.2 词频饱和（Saturation）的数学证明</h3>
+            <p>
+              当文档中词频 $tf$ 很大时，它几乎肯定来自主题词分布而非偶发分布，即 $E_1(tf) \gg E_0(tf)$。此时分子分母中的 $(1-p)E_0(tf)$ 项均可忽略，$E_1(tf)$ 被上下约掉：
+            </p>
+            $$\lim_{tf \to \infty} w(tf) = \lim_{tf \to \infty} \log\frac{p_1 E_1(tf)}{p_0 E_1(tf)} = \log\frac{p_1}{p_0}$$
+            <p>
+              <strong>这就是词频饱和的数学本质</strong>：当一个词已经出现足够多次时，系统基本确信 $E = 1$（该词就是主题词），此后每多出现一次带来的新信息增量趋近于 $0$，因此 $w(tf)$ 必须存在一个有限的水平渐近线，而不能像朴素 TF 那样线性无限增长。
+            </p>
+
+            <h3>4.3 BM25 的工程近似与文档长度归一化</h3>
+            <p>
+              直接估计 2-Poisson 混合模型的四个参数（$p_1, p_0, \lambda_1, \lambda_0$）在无标注检索中难以落地。BM25 用一个极简洁的解析函数复刻了 $w(tf)$ 的全部定性性质（$tf=0$ 时为 $0$、单调递增、$tf \to \infty$ 时趋于有限上限）：
+            </p>
+            $$\text{sat}(tf) = \frac{(k_1 + 1)\, tf}{k_1 + tf}$$
+            <p>
+              再把「上限高度」交给前文从 BIM 推出的 $\text{IDF}(t)$，就得到有效证据强度 $c^{\text{eff}}(t, d) = \text{IDF}(t) \cdot \frac{(k_1 + 1)\,tf}{k_1 + tf}$。
+            </p>
+            <p>
+              最后处理<strong>文档长度偏置</strong>：长文档之所以词频更高，可能仅仅是因为篇幅更长（Scope / Verbosity 假说），而不代表更相关。记当前文档长度为 $dl$，语料库平均文档长度为 $\text{avgdl}$，定义部分长度归一化因子：
+            </p>
+            $$B = (1 - b) + b \cdot \frac{dl}{\text{avgdl}}, \qquad b \in [0, 1]$$
+            <p>
+              用归一化后的有效词频 $tf' = tf / B$ 替换饱和函数中的 $tf$，上下同乘 $B$ 整理即得 <strong>Okapi BM25</strong> 的完整公式：
+            </p>
+            $$\text{BM25}(d, Q) = \sum_{t \in Q} \text{IDF}(t) \cdot \frac{(k_1 + 1)\, tf(t, d)}{k_1\!\left((1 - b) + b \cdot \dfrac{dl}{\text{avgdl}}\right) + tf(t, d)}$$
+
+            <div class="note-callout">
+              <p class="note-callout-title">超参数 $k_1$ 与 $b$ 的物理直觉与边界行为</p>
+              <ul>
+                <li><strong>$k_1$（词频饱和速率，工程常用 $1.2 \sim 2.0$）</strong>：控制词频从 $1$ 增加到多次时得分上升的幅度。当 $k_1 = 0$ 时，饱和项恒为 $1$，BM25 精确退化回只看「出现与否」的 <strong>BIM 模型</strong>；当 $k_1 \to \infty$ 时，饱和消失，退化为线性 TF 加权。</li>
+                <li><strong>$b$（文档长度惩罚强度，工程常用 $0.75$）</strong>：$b = 0$ 时完全关闭长度归一化（$B=1$）；$b = 1$ 时执行完全按比例的长度归一化（$B = dl/\text{avgdl}$）。在文档长度方差极大的混合语料（如网页 + 短标题 + 长 PDF）中，适度调低 $b$（如 $0.4 \sim 0.6$）常比默认 $0.75$ 更稳。</li>
+              </ul>
+            </div>
+          </section>
+
+          <section id="modern-comparison">
+            <h2>5. 放回现代 RAG 与 Agent 检索系统看 BM25</h2>
+            <p>
+              理解了 BM25 的数学根基后，就能一眼看清它与神经检索各自的能力边界，以及为什么工业界几乎都采用 <strong>Hybrid（BM25 + Dense）+ Cross-Encoder Rerank</strong> 的组合：
+            </p>
+            <div class="note-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>检索层级</th>
+                    <th>核心机制</th>
+                    <th>典型优势</th>
+                    <th>核心短板</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>BM25（词法召回）</strong></td>
+                    <td>倒排索引 + 精确词项 IDF/饱和 TF 统计</td>
+                    <td>零训练、跨领域极稳；对实体名、报错码、函数名、缩写精确命中</td>
+                    <td>存在词汇鸿沟（Vocabulary Mismatch），无法匹配同义改写或跨语言语义</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Dense Bi-Encoder（稠密召回）</strong></td>
+                    <td>Query 与 Doc 独立编码为向量，ANN 近似最近邻检索</td>
+                    <td>捕捉语义相似与改写，长尾语义 Recall 强</td>
+                    <td>压缩成单向量后丢失细粒度词法细节；领域迁移（如代码/专有缩写）容易漏召</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Hybrid + RRF（混合融合）</strong></td>
+                    <td>BM25 与 Dense 并行召回，用倒数排名融合 $\sum \frac{1}{k + \text{rank}_i}$</td>
+                    <td>无需对齐两种模型的分数量纲，稳定兼具精确符号与语义泛化</td>
+                    <td>仍属于粗排阶段，Query 与 Doc 之间缺乏 token 级细粒度交互</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Cross-Encoder / LLM Rerank</strong></td>
+                    <td>把 Query 与候选 Doc 拼接后联合做全注意力打分</td>
+                    <td>捕捉精确逻辑约束、否定词与多条件匹配，Top-10 Precision 最高</td>
+                    <td>无法离线预编码文档，计算量 $O(|C|)$，只能放在漏斗后端精排</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p>
+              <strong>总结一句话</strong>：BM25 并不是一套拍脑袋拼出来的经验公式，而是<strong>概率排序原理 + 伯努利似然比 + 主题隐变量饱和近似</strong>在无监督场景下的优雅解析落点。即使在 Agentic Search 和深度研究系统里，当模型需要检索代码标识符、特定数字指标或罕见专有名词时，BM25 提供的精确词法锚点依然是稠密向量难以替代的底层保障。
+            </p>
+          </section>
+
+          <section id="references">
+            <h2>参考文献与经典讲义</h2>
+            <ul>
+              <li>Robertson, S. E., &amp; Spärck Jones, K. (1976). <em>Relevance Weighting of Search Terms</em>. JASIS.</li>
+              <li>Robertson, S. E., &amp; Walker, S. (1994). <em>Some Simple Effective Approximations to the 2-Poisson Model for Probabilistic Weighted Retrieval</em>. SIGIR 1994.</li>
+              <li>Robertson, S., &amp; Zaragoza, H. (2009). <em>The Probabilistic Relevance Framework: BM25 and Beyond</em>. Foundations and Trends in Information Retrieval.</li>
+              <li>Manning, C. D., Raghavan, P., &amp; Schütze, H. (2008). <em>Introduction to Information Retrieval</em>, Chapter 11: Probabilistic Information Retrieval.</li>
+            </ul>
+          </section>
+        </article>
+      </main>
+
+      <footer class="site-footer">
+        <span>© 2026 Chuyang Wei</span>
+        <a href="../">All Notes</a>
+        <a href="../../">Home</a>
+        <a href="../../cv/">CV</a>
+      </footer>
+    </div>
+  </body>
+</html>
